@@ -8,6 +8,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
+| v2.17.0 | [`v2.17.0`](https://github.com/chainguard-actions/cpp-linter-cpp-linter-action/tree/v2.17.0) | [`2446798`](https://github.com/cpp-linter/cpp-linter-action/commit/24467985494bed9bfc398489b6ec12469beaf4da) |
 | v2.17.1 | [`v2.17.1`](https://github.com/chainguard-actions/cpp-linter-cpp-linter-action/tree/v2.17.1) | — |
 
 ## Privacy
