@@ -1,0 +1,71 @@
+name: Test with both clang-tidy and clang-format disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a C++ source file
+        run: |
+          mkdir -p /tmp/cpp-test-disabled
+          cat > /tmp/cpp-test-disabled/main.cpp << 'EOF'
+          #include <iostream>
+          int main() { return 0; }
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          style: ''
+          tidy-checks: '-*'
+          extensions: 'cpp'
+          repo-root: '/tmp/cpp-test-disabled'
+          version: '20'
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          thread-comments: 'false'
+          no-lgtm: 'true'
+          step-summary: 'false'
+          file-annotations: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          ignore: ''
+
+      - name: Assert checks-failed is 0 when both tools disabled
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ "$CHECKS_FAILED" != "0" ]; then
+            echo "FAIL: expected checks-failed=0, got '$CHECKS_FAILED'"
+            exit 1
+          fi
+          echo "PASS: checks-failed=0 as expected"
+
+      - name: Assert clang-tidy-checks-failed is 0
+        env:
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+        run: |
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-tidy-checks-failed=0, got '$TIDY_FAILED'"
+            exit 1
+          fi
+          echo "PASS: clang-tidy-checks-failed=0 as expected"
+
+      - name: Assert clang-format-checks-failed is 0
+        env:
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if [ "$FORMAT_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-format-checks-failed=0, got '$FORMAT_FAILED'"
+            exit 1
+          fi
+          echo "PASS: clang-format-checks-failed=0 as expected"

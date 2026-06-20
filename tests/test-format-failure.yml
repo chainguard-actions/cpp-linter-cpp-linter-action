@@ -1,0 +1,53 @@
+name: Test format failure detection
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a poorly formatted C++ source file
+        run: |
+          mkdir -p /tmp/cpp-test-format
+          # Write a file with bad formatting (wrong indentation, no spaces)
+          printf '#include <iostream>\nint main(){int x=1;return x;}\n' > /tmp/cpp-test-format/bad.cpp
+
+      - id: action
+        uses: .
+        with:
+          style: 'llvm'
+          tidy-checks: '-*'
+          extensions: 'cpp'
+          repo-root: '/tmp/cpp-test-format'
+          version: '20'
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          thread-comments: 'false'
+          no-lgtm: 'true'
+          step-summary: 'false'
+          file-annotations: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          ignore: ''
+
+      - name: Assert clang-format detected issues
+        env:
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ "$FORMAT_FAILED" = "0" ]; then
+            echo "FAIL: expected clang-format-checks-failed > 0 for badly formatted file, got 0"
+            exit 1
+          fi
+          if [ "$CHECKS_FAILED" = "0" ]; then
+            echo "FAIL: expected checks-failed > 0 for badly formatted file, got 0"
+            exit 1
+          fi
+          echo "PASS: format issues detected as expected (format-failed=$FORMAT_FAILED, checks-failed=$CHECKS_FAILED)"
