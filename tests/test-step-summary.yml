@@ -1,0 +1,56 @@
+name: Test step-summary output file
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          style: ''
+          tidy-checks: '-*'
+          extensions: 'c'
+          version: '20'
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          ignore: '.github|tests'
+          ignore-tidy: '.github|tests'
+          ignore-format: '.github|tests'
+          thread-comments: 'false'
+          no-lgtm: 'false'
+          step-summary: 'true'
+          file-annotations: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          passive-reviews: 'false'
+          jobs: '1'
+          cache-enable: 'false'
+          summary-output-file: 'cpp-linter-summary.md'
+
+      - name: Assert summary file was created
+        run: |
+          echo "Checking for summary file..."
+          if [ ! -f "cpp-linter-summary.md" ]; then
+            echo "FAIL: cpp-linter-summary.md was not created"
+            exit 1
+          fi
+          echo "PASS: summary file exists"
+          cat cpp-linter-summary.md
+
+      - name: Assert checks-failed output is set
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ -z "$CHECKS_FAILED" ]; then
+            echo "FAIL: checks-failed output is empty"
+            exit 1
+          fi
+          echo "PASS"

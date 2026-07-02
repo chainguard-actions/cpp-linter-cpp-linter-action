@@ -1,0 +1,67 @@
+name: Test disabling both clang-format and clang-tidy
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          style: ''
+          tidy-checks: '-*'
+          extensions: 'c'
+          version: '20'
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          ignore: '.github|tests'
+          ignore-tidy: '.github|tests'
+          ignore-format: '.github|tests'
+          thread-comments: 'false'
+          no-lgtm: 'true'
+          step-summary: 'false'
+          file-annotations: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          passive-reviews: 'false'
+          jobs: '1'
+          cache-enable: 'false'
+
+      - name: Assert checks-failed is 0 when both linters disabled
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ "$CHECKS_FAILED" != "0" ]; then
+            echo "FAIL: expected checks-failed=0 when both linters are disabled, got '$CHECKS_FAILED'"
+            exit 1
+          fi
+          echo "PASS: checks-failed=0 as expected"
+
+      - name: Assert clang-tidy-checks-failed is 0
+        env:
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+        run: |
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-tidy-checks-failed=0, got '$TIDY_FAILED'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert clang-format-checks-failed is 0
+        env:
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if [ "$FORMAT_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-format-checks-failed=0, got '$FORMAT_FAILED'"
+            exit 1
+          fi
+          echo "PASS"

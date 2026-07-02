@@ -1,0 +1,68 @@
+name: Test basic usage - lint clean C file
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          style: 'llvm'
+          extensions: 'c'
+          tidy-checks: '-*'
+          repo-root: '.'
+          version: '20'
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          ignore: '.github|tests'
+          ignore-tidy: '.github|tests'
+          ignore-format: '.github|tests'
+          thread-comments: 'false'
+          no-lgtm: 'true'
+          step-summary: 'false'
+          file-annotations: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          passive-reviews: 'false'
+          jobs: '1'
+          cache-enable: 'false'
+
+      - name: Assert checks-failed output exists
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ -z "$CHECKS_FAILED" ]; then
+            echo "FAIL: checks-failed output is empty"
+            exit 1
+          fi
+          echo "PASS: checks-failed=$CHECKS_FAILED"
+
+      - name: Assert clang-format-checks-failed output exists
+        env:
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if [ -z "$FORMAT_FAILED" ]; then
+            echo "FAIL: clang-format-checks-failed output is empty"
+            exit 1
+          fi
+          echo "PASS: clang-format-checks-failed=$FORMAT_FAILED"
+
+      - name: Assert clang-tidy-checks-failed output exists
+        env:
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+        run: |
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          if [ -z "$TIDY_FAILED" ]; then
+            echo "FAIL: clang-tidy-checks-failed output is empty"
+            exit 1
+          fi
+          echo "PASS: clang-tidy-checks-failed=$TIDY_FAILED"
