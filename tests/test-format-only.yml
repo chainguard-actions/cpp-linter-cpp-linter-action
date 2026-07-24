@@ -1,4 +1,4 @@
-name: Test basic usage - no linting tools
+name: Test clang-format only (tidy disabled)
 on:
   workflow_dispatch:
 
@@ -11,9 +11,9 @@ jobs:
       - id: action
         uses: .
         with:
-          # Disable both clang-tidy and clang-format so no tool installation is needed
+          # Disable clang-tidy, enable clang-format with llvm style
           tidy-checks: '-*'
-          style: ''
+          style: 'llvm'
           extensions: 'c,h,cpp,hpp'
           repo-root: '.'
           version: '20'
@@ -27,30 +27,29 @@ jobs:
           file-annotations: 'true'
           cache-enable: 'false'
 
-      - name: Assert checks-failed output exists
+      - name: Assert checks-failed is a number
         env:
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
         run: |
           echo "checks-failed: $CHECKS_FAILED"
-          # Output should be a number (0 when no tools run)
           if ! echo "$CHECKS_FAILED" | grep -qE '^[0-9]+$'; then
             echo "FAIL: expected checks-failed to be a non-negative integer, got: '$CHECKS_FAILED'"
             exit 1
           fi
           echo "PASS: checks-failed=$CHECKS_FAILED"
 
-      - name: Assert clang-tidy-checks-failed output exists
+      - name: Assert clang-tidy-checks-failed is zero (tidy disabled)
         env:
           TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
         run: |
           echo "clang-tidy-checks-failed: $TIDY_FAILED"
-          if ! echo "$TIDY_FAILED" | grep -qE '^[0-9]+$'; then
-            echo "FAIL: expected clang-tidy-checks-failed to be a non-negative integer, got: '$TIDY_FAILED'"
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-tidy-checks-failed to be 0 (tidy disabled), got: '$TIDY_FAILED'"
             exit 1
           fi
-          echo "PASS: clang-tidy-checks-failed=$TIDY_FAILED"
+          echo "PASS: clang-tidy-checks-failed=0 as expected"
 
-      - name: Assert clang-format-checks-failed output exists
+      - name: Assert clang-format-checks-failed is a number
         env:
           FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
         run: |

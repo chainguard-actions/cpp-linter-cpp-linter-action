@@ -1,0 +1,37 @@
+name: cpp-linter
+
+on:
+  push:
+    paths:
+      - "docs/examples/demo/*"
+  pull_request:
+    paths:
+      - "docs/examples/demo/*"
+
+permissions: {}
+
+jobs:
+  cpp-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: cpp-linter/cpp-linter-action@0b93f5833680005fbb233652d0e3d8835b3cc2f3  # main
+        id: linter
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: file
+          files-changed-only: false
+          thread-comments: false
+
+      - name: Fail fast?!
+        if: steps.linter.outputs.checks-failed != 0
+        env:
+          CHECKS_FAILED: ${{ steps.linter.outputs.checks-failed }}
+        run: |
+          echo "some linter checks failed. $CHECKS_FAILED"
+        # for actual deployment
+        # run: exit 1

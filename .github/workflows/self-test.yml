@@ -1,0 +1,87 @@
+name: Self test action
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'action.yml'
+      - '.python-version'
+      - 'uv.lock'
+      - 'docs/examples/demo/**'
+      - '.github/workflows/self-test.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'action.yml'
+      - '.python-version'
+      - 'uv.lock'
+      - 'docs/examples/demo/**'
+      - '.github/workflows/self-test.yml'
+  # pull_request_target:
+  #   branches: [main]
+  #   paths:
+  #     - 'action.yml'
+  #     - '.python-version'
+  #     - 'uv.lock'
+  #     - 'docs/examples/demo/**'
+  #     - '.github/workflows/self-test.yml'
+
+jobs:
+  test:
+    permissions:
+      contents: write
+      pull-requests: write
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        clang-version: ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22']
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Cache the build artifacts
+        id: cache-build
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+        with:
+          path: build
+          key: ${{ runner.os }}-${{ hashFiles('docs/examples/demo/**') }}
+
+      - name: Generate compilation database
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        run: mkdir build && cmake -Bbuild docs/examples/demo
+
+      - name: Self test action
+        uses: ./
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: file
+          files-changed-only: false
+          # to ignore all build folder contents
+          ignore: build|venv
+          database: build
+          verbosity: debug
+          version: ${{ matrix.clang-version }}
+          thread-comments: ${{ github.event_name == 'pull_request' && matrix.clang-version == '16' && 'update' }}
+          file-annotations: ${{ runner.os == 'Linux' && matrix.clang-version == '16' }}
+          step-summary: ${{ matrix.clang-version == '16' }}
+          extra-args: -std=c++14 -Wall
+
+      - name: Fail fast?!
+        # if: steps.linter.outputs.checks-failed > 0
+        env:
+          CHECKS_FAILED: ${{ steps.linter.outputs.checks-failed }}
+          CLANG_TIDY_CHECKS_FAILED: ${{ steps.linter.outputs.clang-tidy-checks-failed }}
+          CLANG_FORMAT_CHECKS_FAILED: ${{ steps.linter.outputs.clang-format-checks-failed }}
+        run: |
+          echo "some linter checks failed"
+          echo "total checks-failed: $CHECKS_FAILED"
+          echo "clang-tidy checks-failed: $CLANG_TIDY_CHECKS_FAILED"
+          echo "clang-format checks-failed: $CLANG_FORMAT_CHECKS_FAILED"
+        # for actual deployment
+        # run: exit 1
