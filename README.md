@@ -12,6 +12,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v2.17.1 | [`v2.17.1`](https://github.com/chainguard-actions/cpp-linter-cpp-linter-action/tree/v2.17.1) | — |
 | v2.18.0 | [`v2.18.0`](https://github.com/chainguard-actions/cpp-linter-cpp-linter-action/tree/v2.18.0) | [`77c390c`](https://github.com/cpp-linter/cpp-linter-action/commit/77c390c5ba9c947ebc185a3e49cc754f1558abb5) |
 | v2.20.0 | [`v2.20.0`](https://github.com/chainguard-actions/cpp-linter-cpp-linter-action/tree/v2.20.0) | [`8e85cd0`](https://github.com/cpp-linter/cpp-linter-action/commit/8e85cd02c8c3fe3ae527c94b5683fe2366b144ed) |
+| v2.21.0 | [`v2.21.0`](https://github.com/chainguard-actions/cpp-linter-cpp-linter-action/tree/v2.21.0) | [`cab1143`](https://github.com/cpp-linter/cpp-linter-action/commit/cab1143a2c149bc41e85b070a9de81716974c18f) |
 
 ## Privacy
 
