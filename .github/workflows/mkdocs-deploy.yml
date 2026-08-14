@@ -1,0 +1,14 @@
+name: MkDocs Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  build-docs:
+    uses: cpp-linter/.github/.github/workflows/mkdocs.yml@f3f3c766170cc625ccc900fcec546bff75d2e0f0 # main

@@ -1,0 +1,16 @@
+name: Release Drafter
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  draft-release:
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: cpp-linter/.github/.github/workflows/release-drafter.yml@f3f3c766170cc625ccc900fcec546bff75d2e0f0 # main

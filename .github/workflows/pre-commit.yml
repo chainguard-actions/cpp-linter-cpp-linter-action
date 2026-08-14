@@ -1,0 +1,13 @@
+name: Run pre-commit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  pre-commit:
+    uses: cpp-linter/.github/.github/workflows/pre-commit.yml@f3f3c766170cc625ccc900fcec546bff75d2e0f0 # main
