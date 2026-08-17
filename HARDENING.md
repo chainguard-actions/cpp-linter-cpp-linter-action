@@ -8,30 +8,41 @@
 
 **Test Policy SHA:** `843adf9e4b8f85d0c08b27b9d0b09dd094b54702`
 
-**Harden Agent Version:** `1`
+**Harden Agent Version:** `2`
 
-Action **cpp-linter--cpp-linter-action/v2.18.0** was hardened automatically. 35 finding(s) were identified and resolved across 1 iteration(s).
+Action **cpp-linter--cpp-linter-action/v2.18.0** was hardened automatically. 35 finding(s) were identified and resolved across 2 iteration(s).
 
 ## Findings Fixed
 
 ### script-injection (severity: high)
 
-Rule (a): Multiple ${{ inputs.* }} and ${{ runner.* }} expressions are directly interpolated inside run: shell command strings across four steps in action.yml. GitHub Actions substitutes these expressions before the Nu shell interpreter sees the script, so special characters in input values can alter script behavior. Affected steps: 'Install Linux clang dependencies' uses ${{ inputs.version }} in a list literal and as a command argument (e.g. `install -y clang-format-${{ inputs.version }}`); 'Install MacOS clang dependencies' uses ${{ inputs.version }} in string literals; 'Setup cpp-linter dependencies' uses ${{ inputs.verbosity }}, ${{ inputs.version }}, ${{ inputs.tidy-checks }}, ${{ inputs.style }}; 'Run cpp-linter' interpolates all inputs into a Nu list (e.g. '--style=${{ inputs.style }}') and uses ${{ runner.os }}.
+Multiple `${{ ... }}` expressions are interpolated directly inside `run:` shell command strings (Nu shell), violating rule (a). This allows an attacker who controls input values to inject arbitrary shell commands.
+
+**Install Linux clang dependencies** step: `install -y clang-format-${{ inputs.version }} clang-tidy-${{ inputs.version }}` and `^sudo $"($action_path)/llvm_install.sh" ${{ inputs.version }}` / `^bash $"($action_path)/llvm_install.sh" ${{ inputs.version }}` — `inputs.version` interpolated directly into the Nu shell run block.
+
+**Install MacOS clang dependencies** step: `let brew_install_arg = 'llvm@${{ inputs.version }}'` and `"/usr/local/bin/clang-format-${{ inputs.version }}"` — `inputs.version` interpolated directly.
+
+**Setup cpp-linter dependencies** step: `'${{ inputs.verbosity }}' == 'debug'`, `'${{ inputs.version }}'`, `"${{ inputs.tidy-checks }}"`, `"${{ inputs.style }}"` — multiple inputs interpolated directly.
+
+**Run cpp-linter** step: All inputs (`inputs.style`, `inputs.extensions`, `inputs.tidy-checks`, `inputs.repo-root`, `inputs.version`, `inputs.verbosity`, `inputs.lines-changed-only`, `inputs.files-changed-only`, `inputs.thread-comments`, `inputs.no-lgtm`, `inputs.step-summary`, `inputs.ignore`, `inputs.ignore-tidy`, `inputs.ignore-format`, `inputs.database`, `inputs.file-annotations`, `inputs.extra-args`, `inputs.tidy-review`, `inputs.format-review`, `inputs.passive-reviews`, `inputs.jobs`) and `runner.os` are interpolated directly into the Nu shell run block as string literals.
 
 Locations:
 
-- `action.yml:253`
-- `action.yml:278`
-- `action.yml:292`
-- `action.yml:355`
+- `action.yml:247`
+- `action.yml:263`
+- `action.yml:284`
+- `action.yml:286`
+- `action.yml:325`
+- `action.yml:332`
+- `action.yml:376`
 
 ### unsafe-shell (severity: high)
 
-The 'Setup cpp-linter dependencies' step downloads a remote installer script from astral.sh using Nu shell's `http get` and pipes the result directly to `^sh`: `$installer | ^sh`. This is equivalent to curl | sh — executing remotely-fetched content without saving or verifying it first. A compromised or MITM response could execute arbitrary code on the runner.
+In the **Setup cpp-linter dependencies** step, the uv installer script is fetched from a remote URL (`https://astral.sh/uv/<version>/install.sh`) using `http get` and then piped directly to `^sh` via `$installer | ^sh`. This executes remotely-fetched content in a shell without first saving it to a file and verifying its integrity, matching the unsafe-shell pattern of piping remote content to a shell interpreter.
 
 Locations:
 
-- `action.yml:320`
+- `action.yml:322`
 
 ### static-inline-injection (severity: high)
 
@@ -305,13 +316,27 @@ Locations:
 
 **Notes:**
 
-Fixed all script-injection and static-inline-injection findings by moving all ${{ inputs.* }} and ${{ runner.* }} expressions from run: blocks to env: blocks across four steps in action.yml:
+Fixed all security findings in hardened/action/action.yml:
 
-1. 'Install Linux clang dependencies': Added env: block with CLANG_VERSION=${{ inputs.version }}, replaced inline expressions with $env.CLANG_VERSION in Nu shell script.
+1. **script-injection / static-inline-injection**: Moved all ${{ inputs.* }} and ${{ runner.os }} expressions out of Nu shell run: blocks into env: blocks. The Nu shell scripts now reference these values via $env.VAR_NAME:
+   - 'Install Linux clang dependencies': INPUT_VERSION env var replaces ${{ inputs.version }} in run block
+   - 'Install MacOS clang dependencies': INPUT_VERSION env var replaces ${{ inputs.version }} in run block
+   - 'Setup cpp-linter dependencies': Added INPUT_VERBOSITY, INPUT_VERSION, INPUT_TIDY_CHECKS, INPUT_STYLE env vars
+   - 'Run cpp-linter': Added 22 env vars (all inputs + RUNNER_OS_NAME) replacing all ${{ }} expressions in run block
 
-2. 'Install MacOS clang dependencies': Added env: block with CLANG_VERSION=${{ inputs.version }}, replaced inline expressions with $env.CLANG_VERSION in Nu shell script.
+2. **unsafe-shell**: Fixed the uv installer pipe-to-shell pattern. Instead of `let installer = http get ... | ^sh`, the script now saves the installer to a file first (`http get ... | save --force $installer_path`) and then executes it with `^sh $installer_path`. For Windows, the content is read from the saved file before passing to PowerShell.
 
-3. 'Setup cpp-linter dependencies': Added INPUT_VERBOSITY, INPUT_VERSION, INPUT_TIDY_CHECKS, INPUT_STYLE to env: block, replaced all inline expressions with $env.INPUT_* references. Also fixed the unsafe-shell issue: instead of piping the downloaded installer directly to ^sh ($installer | ^sh), the script is now saved to a file first (save --force $installer_path), executed from the file (^sh $installer_path), then cleaned up (rm --force $installer_path).
+### Iteration 2
 
-4. 'Run cpp-linter': Added all 22 inputs plus runner.os to env: block (INPUT_STYLE, INPUT_EXTENSIONS, INPUT_TIDY_CHECKS, INPUT_REPO_ROOT, INPUT_VERSION, INPUT_VERBOSITY, INPUT_LINES_CHANGED_ONLY, INPUT_FILES_CHANGED_ONLY, INPUT_THREAD_COMMENTS, INPUT_NO_LGTM, INPUT_STEP_SUMMARY, INPUT_IGNORE, INPUT_IGNORE_TIDY, INPUT_IGNORE_FORMAT, INPUT_DATABASE, INPUT_FILE_ANNOTATIONS, INPUT_EXTRA_ARGS, INPUT_TIDY_REVIEW, INPUT_FORMAT_REVIEW, INPUT_PASSIVE_REVIEWS, INPUT_JOBS, RUNNER_OS_NAME), replaced all inline expressions with $env.INPUT_* and $env.RUNNER_OS_NAME references in Nu shell script.
+**Fixes applied:** script-injection, unpinned-uses, missing-permissions
+
+**Notes:**
+
+Fixed all 5 findings across 11 workflow files:
+
+1. script-injection (release.yml line 34): Moved inputs.tag into env var INPUT_TAG, used ${INPUT_TAG:-$MAJOR_VERSION} in shell.
+2. script-injection (cpp-linter.yml line 24): Moved steps.linter.outputs.checks-failed into env var CHECKS_FAILED.
+3. script-injection (self-test.yml line 57): Moved all three linter output expressions into env vars (CHECKS_FAILED, CLANG_TIDY_CHECKS_FAILED, CLANG_FORMAT_CHECKS_FAILED).
+4. unpinned-uses: Pinned cpp-linter/cpp-linter-action@main→SHA, actions/cache@v5→SHA, actions/checkout@v5→SHA (examples), cpp-linter/cpp-linter-action@v2→SHA (examples), and all cpp-linter/.github reusable workflows @main→SHA.
+5. missing-permissions: Added permissions: {} at top level to cpp-linter.yml, mkdocs-deploy.yml, pre-commit.yml, examples/only-clang-format.yml, and examples/only-clang-tidy.yml; added minimal job-level permissions where needed.
 

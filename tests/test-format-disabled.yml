@@ -1,4 +1,4 @@
-name: Test basic usage - clean C file
+name: Test with clang-format disabled
 on:
   workflow_dispatch:
 jobs:
@@ -7,7 +7,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Run cpp-linter on clean C fixture (both tools disabled)
+      - name: Run cpp-linter with clang-format disabled (style empty)
         id: linter
         uses: .
         with:
@@ -32,17 +32,6 @@ jobs:
           jobs: '1'
           cache-enable: 'false'
 
-      - name: Assert checks-failed output is numeric
-        env:
-          CHECKS_FAILED: ${{ steps.linter.outputs.checks-failed }}
-        run: |
-          echo "checks-failed: $CHECKS_FAILED"
-          if ! echo "$CHECKS_FAILED" | grep -qE '^[0-9]+$'; then
-            echo "FAIL: checks-failed is not a numeric value: $CHECKS_FAILED"
-            exit 1
-          fi
-          echo "PASS: checks-failed output is present and numeric: $CHECKS_FAILED"
-
       - name: Assert clang-format-checks-failed is 0 (format disabled)
         env:
           FORMAT_FAILED: ${{ steps.linter.outputs.clang-format-checks-failed }}
@@ -52,15 +41,15 @@ jobs:
             echo "FAIL: expected clang-format-checks-failed=0 when format is disabled, got: $FORMAT_FAILED"
             exit 1
           fi
-          echo "PASS: clang-format-checks-failed is 0 as expected"
+          echo "PASS: clang-format-checks-failed is 0 as expected when format is disabled"
 
-      - name: Assert clang-tidy-checks-failed is 0 (tidy disabled)
+      - name: Assert checks-failed output is numeric
         env:
-          TIDY_FAILED: ${{ steps.linter.outputs.clang-tidy-checks-failed }}
+          CHECKS_FAILED: ${{ steps.linter.outputs.checks-failed }}
         run: |
-          echo "clang-tidy-checks-failed: $TIDY_FAILED"
-          if [ "$TIDY_FAILED" != "0" ]; then
-            echo "FAIL: expected clang-tidy-checks-failed=0 when tidy is disabled, got: $TIDY_FAILED"
+          echo "checks-failed: $CHECKS_FAILED"
+          if ! echo "$CHECKS_FAILED" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: checks-failed is not a numeric value: $CHECKS_FAILED"
             exit 1
           fi
-          echo "PASS: clang-tidy-checks-failed is 0 as expected"
+          echo "PASS: checks-failed is numeric: $CHECKS_FAILED"

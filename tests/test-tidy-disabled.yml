@@ -1,0 +1,55 @@
+name: Test with clang-tidy disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run cpp-linter with clang-tidy disabled (tidy-checks -*)
+        id: linter
+        uses: .
+        with:
+          style: ''
+          extensions: 'c,h'
+          tidy-checks: '-*'
+          repo-root: '.'
+          version: ''
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          ignore: '.github'
+          ignore-tidy: '.github'
+          ignore-format: '.github'
+          thread-comments: 'false'
+          no-lgtm: 'true'
+          step-summary: 'false'
+          file-annotations: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          passive-reviews: 'false'
+          jobs: '1'
+          cache-enable: 'false'
+
+      - name: Assert clang-tidy-checks-failed is 0 (tidy disabled)
+        env:
+          TIDY_FAILED: ${{ steps.linter.outputs.clang-tidy-checks-failed }}
+        run: |
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-tidy-checks-failed=0 when tidy-checks='-*', got: $TIDY_FAILED"
+            exit 1
+          fi
+          echo "PASS: clang-tidy-checks-failed is 0 as expected when tidy is disabled"
+
+      - name: Assert checks-failed output is numeric
+        env:
+          CHECKS_FAILED: ${{ steps.linter.outputs.checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          if ! echo "$CHECKS_FAILED" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: checks-failed is not a numeric value: $CHECKS_FAILED"
+            exit 1
+          fi
+          echo "PASS: checks-failed is numeric: $CHECKS_FAILED"

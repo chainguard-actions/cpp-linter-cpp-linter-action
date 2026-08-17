@@ -288,12 +288,12 @@ runs:
       if: runner.os == 'Linux'
       shell: nu {0}
       env:
-        CLANG_VERSION: ${{ inputs.version }}
+        INPUT_VERSION: ${{ inputs.version }}
       run: |
         let action_path = $env.GITHUB_ACTION_PATH | path expand
-        let clang_version = $env.CLANG_VERSION
+        let version = $env.INPUT_VERSION
         let apt_install_args = [
-            install -y $"clang-format-($clang_version)" $"clang-tidy-($clang_version)"
+            install -y $"clang-format-($version)" $"clang-tidy-($version)"
         ]
         let has_sudo = not ((which 'sudo') | is-empty)
 
@@ -317,9 +317,9 @@ runs:
 
           let llvm_installer_result = (
             if $has_sudo {
-                ^sudo $"($action_path)/llvm_install.sh" $clang_version
+                ^sudo $"($action_path)/llvm_install.sh" $version
             } else {
-                ^bash $"($action_path)/llvm_install.sh" $clang_version
+                ^bash $"($action_path)/llvm_install.sh" $version
             }
           ) | complete
           print $llvm_installer_result
@@ -339,17 +339,17 @@ runs:
       if: runner.os == 'macOS'
       shell: nu {0}
       env:
-        CLANG_VERSION: ${{ inputs.version }}
+        INPUT_VERSION: ${{ inputs.version }}
       run: |-
-        let clang_version = $env.CLANG_VERSION
+        let version = $env.INPUT_VERSION
         ^brew update
-        let brew_install_arg = $"llvm@($clang_version)"
+        let brew_install_arg = $"llvm@($version)"
         let result = (^brew install $brew_install_arg) | complete
         print $result
         if ($result.exit_code == 0) {
           let brew_prefix = ^brew --prefix $brew_install_arg
-          ^ln -s $"($brew_prefix)/bin/clang-format" $"/usr/local/bin/clang-format-($clang_version)"
-          ^ln -s $"($brew_prefix)/bin/clang-tidy" $"/usr/local/bin/clang-tidy-($clang_version)"
+          ^ln -s $"($brew_prefix)/bin/clang-format" $"/usr/local/bin/clang-format-($version)"
+          ^ln -s $"($brew_prefix)/bin/clang-tidy" $"/usr/local/bin/clang-tidy-($version)"
         }
     - name: Setup cpp-linter dependencies
       shell: nu {0}
@@ -376,14 +376,14 @@ runs:
         } else {
           $"https://astral.sh/uv/($env.UV_VERSION)/install.sh"
         }
-        let installer_path = $"($action_path)/uv_installer_script"
+        let installer_path = $env.RUNNER_TEMP | path join 'uv_installer'
         http get --raw --redirect-mode follow $uv_installer_url | save --force $installer_path
         if $is_windows {
-          ^powershell -ExecutionPolicy ByPass (open --raw $installer_path)
+          let installer_content = open --raw $installer_path
+          ^powershell -ExecutionPolicy ByPass $installer_content
         } else {
           ^sh $installer_path
         }
-        rm --force $installer_path
 
         let gh_action_debug = $env | get --optional 'ACTIONS_STEP_DEBUG'
         let action_verbosity = $env.INPUT_VERBOSITY == 'debug'
