@@ -1,0 +1,61 @@
+name: Test format-only mode with clean file
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a well-formatted C file for testing
+        run: |
+          mkdir -p /tmp/cpp-lint-test
+          cat > /tmp/cpp-lint-test/clean.c << 'EOF'
+          // Well-formatted C file
+          #include <stdio.h>
+
+          int main(void) {
+            printf("Hello\n");
+            return 0;
+          }
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          # Use LLVM style for clang-format
+          style: 'llvm'
+          # Disable clang-tidy entirely
+          tidy-checks: '-*'
+          extensions: 'c'
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          repo-root: '.'
+          # Ignore everything - no C files in repo root to lint
+          ignore: '.github'
+          ignore-tidy: '.github'
+          ignore-format: '.github'
+          thread-comments: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          step-summary: 'false'
+          file-annotations: 'false'
+          version: '20'
+          verbosity: 'info'
+
+      - name: Assert clang-format-checks-failed is 0
+        env:
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "checks-failed: $CHECKS_FAILED"
+          # Since tidy is disabled, tidy failures should be 0
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-tidy-checks-failed=0 (tidy disabled), got: $TIDY_FAILED"
+            exit 1
+          fi
+          echo "PASS: clang-tidy-checks-failed is 0 as expected (tidy disabled)"

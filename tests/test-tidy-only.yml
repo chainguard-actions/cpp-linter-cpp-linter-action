@@ -1,0 +1,54 @@
+name: Test tidy-only mode with format disabled
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          # Disable clang-format entirely
+          style: ''
+          # Use some basic tidy checks
+          tidy-checks: 'readability-*'
+          extensions: 'c'
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          repo-root: '.'
+          # Ignore everything except our fixture
+          ignore: '.github'
+          ignore-tidy: '.github'
+          ignore-format: '.github'
+          thread-comments: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          step-summary: 'false'
+          file-annotations: 'false'
+          version: '20'
+          verbosity: 'info'
+
+      - name: Assert clang-format-checks-failed is 0 (format disabled)
+        env:
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "checks-failed: $CHECKS_FAILED"
+          # Since format is disabled (style=''), format failures should be 0
+          if [ "$FORMAT_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-format-checks-failed=0 (format disabled), got: $FORMAT_FAILED"
+            exit 1
+          fi
+          echo "PASS: clang-format-checks-failed is 0 as expected (format disabled)"
+          # All outputs should be numeric
+          if ! echo "$CHECKS_FAILED" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: checks-failed output is not a number: '$CHECKS_FAILED'"
+            exit 1
+          fi
+          echo "PASS: checks-failed is numeric: $CHECKS_FAILED"

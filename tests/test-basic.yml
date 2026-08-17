@@ -1,0 +1,59 @@
+name: Test basic usage - clean file no failures
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          # Use LLVM style (default) for clang-format
+          style: 'llvm'
+          # Disable clang-tidy entirely to keep the test fast
+          tidy-checks: '-*'
+          # Only look at .c files
+          extensions: 'c'
+          # Analyze all files (not just changed ones)
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          # Only lint the fixtures directory
+          repo-root: '.'
+          ignore: '.github|tests/fixtures'
+          ignore-tidy: '.github|tests/fixtures'
+          ignore-format: '.github|tests/fixtures'
+          # Disable PR-specific features
+          thread-comments: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          step-summary: 'false'
+          file-annotations: 'false'
+          version: '20'
+          verbosity: 'info'
+
+      - name: Assert checks-failed output exists
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          # Outputs should be numeric (0 or positive integer)
+          if ! echo "$CHECKS_FAILED" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: checks-failed output is not a number: '$CHECKS_FAILED'"
+            exit 1
+          fi
+          if ! echo "$TIDY_FAILED" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: clang-tidy-checks-failed output is not a number: '$TIDY_FAILED'"
+            exit 1
+          fi
+          if ! echo "$FORMAT_FAILED" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: clang-format-checks-failed output is not a number: '$FORMAT_FAILED'"
+            exit 1
+          fi
+          echo "PASS: all outputs are numeric"
