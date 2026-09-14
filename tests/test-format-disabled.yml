@@ -1,0 +1,56 @@
+name: Test with clang-format disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: linter
+        uses: .
+        with:
+          style: ''
+          extensions: 'c,h'
+          tidy-checks: '-*'
+          repo-root: '.'
+          version: '21'
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          ignore: '.github|tests/fixtures'
+          ignore-tidy: '.github|tests/fixtures'
+          ignore-format: '.github|tests/fixtures'
+          thread-comments: 'false'
+          no-lgtm: 'true'
+          step-summary: 'false'
+          file-annotations: 'false'
+          tidy-review: 'false'
+          format-review: 'false'
+          passive-reviews: 'false'
+          jobs: '1'
+          cache-enable: 'false'
+
+      - name: Assert outputs are set when both tools are disabled
+        env:
+          CHECKS_FAILED: ${{ steps.linter.outputs.checks-failed }}
+          TIDY_FAILED: ${{ steps.linter.outputs.clang-tidy-checks-failed }}
+          FORMAT_FAILED: ${{ steps.linter.outputs.clang-format-checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          # When both tools are disabled, checks-failed should be 0
+          if ! echo "$CHECKS_FAILED" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: checks-failed output is not a non-negative integer: '$CHECKS_FAILED'"
+            exit 1
+          fi
+          if [ "$FORMAT_FAILED" != "0" ]; then
+            echo "FAIL: clang-format-checks-failed should be 0 when format is disabled, got: '$FORMAT_FAILED'"
+            exit 1
+          fi
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: clang-tidy-checks-failed should be 0 when tidy is disabled, got: '$TIDY_FAILED'"
+            exit 1
+          fi
+          echo "PASS: both tools disabled, all outputs are 0"

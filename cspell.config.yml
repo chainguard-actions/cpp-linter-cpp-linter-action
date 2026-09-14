@@ -1,0 +1,28 @@
+version: "0.2"
+words:
+  - bugprone
+  - Cachy
+  - cppcoreguidelines
+  - fontawesome
+  - hustcer
+  - imgproxy
+  - inlinehilite
+  - libc
+  - linenums
+  - mkdocs
+  - mypy
+  - Neta
+  - Nextcloud
+  - nushell
+  - pymdownx
+  - pymdown
+  - pyyaml
+  - superfences
+  - twemoji
+  - venv
+  - Zondax
+ignorePaths:
+  - .gitattributes
+  - .gitignore
+  - .venv
+  - CHANGELOG.md
