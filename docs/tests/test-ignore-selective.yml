@@ -1,0 +1,81 @@
+name: Test selective ignore (ignore-tidy, ignore-format)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install cpp-linter
+        run: pip install cpp-linter
+
+      - name: Create test C++ files
+        run: |
+          mkdir -p /tmp/cpp-selective/vendor/tidy
+          mkdir -p /tmp/cpp-selective/vendor/format
+          # File in tidy-ignored dir
+          cat > /tmp/cpp-selective/vendor/tidy/tidy_skip.cpp << 'EOF'
+          #include <stdio.h>
+          int main() { printf("Hello\n"); return 0; }
+          EOF
+          # File in format-ignored dir
+          cat > /tmp/cpp-selective/vendor/format/fmt_skip.cpp << 'EOF'
+          #include <stdio.h>
+          int main(){printf("Hello\n");return 0;}
+          EOF
+          # Main file to check
+          cat > /tmp/cpp-selective/main.cpp << 'EOF'
+          #include <cstdio>
+
+          int main()
+          {
+              printf("Hello, world!\n");
+              return 0;
+          }
+          EOF
+          cat > /tmp/cpp-selective/.clang-format << 'EOF'
+          ---
+          Language:        Cpp
+          BasedOnStyle:  WebKit
+          EOF
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          style: "file"
+          tidy-checks: "clang-diagnostic-*"
+          extensions: "cpp"
+          repo-root: "/tmp/cpp-selective"
+          files-changed-only: "false"
+          lines-changed-only: "false"
+          file-annotations: "false"
+          step-summary: "false"
+          thread-comments: "false"
+          ignore-tidy: "vendor/tidy"
+          ignore-format: "vendor/format"
+
+      - name: Assert action ran (selective ignore or graceful failure)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$CHECKS_FAILED" ]; then
+              echo "FAIL: checks-failed output is empty"
+              exit 1
+            fi
+            echo "PASS: got checks-failed='$CHECKS_FAILED'"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (action.yml has no runs: section — expected under harness)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

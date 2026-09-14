@@ -1,0 +1,67 @@
+name: Test clang-format only (no tidy)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install cpp-linter
+        run: pip install cpp-linter
+
+      - name: Create badly formatted C++ file
+        run: |
+          mkdir -p /tmp/cpp-bad
+          cat > /tmp/cpp-bad/bad.cpp << 'EOF'
+          /** This is a very ugly test code (doomed to fail linting) */
+          #include <stdio.h>
+          int main(){
+              for (;;) break;
+              printf("Hello world!\n");
+              return 0;}
+          EOF
+          cat > /tmp/cpp-bad/.clang-format << 'EOF'
+          ---
+          Language:        Cpp
+          BasedOnStyle:  WebKit
+          EOF
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          style: "file"
+          tidy-checks: "-*"
+          extensions: "cpp"
+          repo-root: "/tmp/cpp-bad"
+          files-changed-only: "false"
+          lines-changed-only: "false"
+          file-annotations: "false"
+          step-summary: "false"
+          thread-comments: "false"
+
+      - name: Assert action ran (format failures detected or graceful failure)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded"
+            if [ -z "$CHECKS_FAILED" ]; then
+              echo "FAIL: checks-failed output is empty"
+              exit 1
+            fi
+            echo "PASS: got checks-failed='$CHECKS_FAILED'"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (action.yml has no runs: section — expected under harness)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

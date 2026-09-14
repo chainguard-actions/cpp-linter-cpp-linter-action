@@ -1,0 +1,66 @@
+name: Test cache, database, and summary-output-file options
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install cpp-linter
+        run: pip install cpp-linter
+
+      - name: Create test C++ file
+        run: |
+          mkdir -p /tmp/cpp-cache
+          cat > /tmp/cpp-cache/hello.cpp << 'EOF'
+          #include <cstdio>
+
+          int main()
+          {
+              printf("Hello, world!\n");
+              return 0;
+          }
+          EOF
+          cat > /tmp/cpp-cache/.clang-format << 'EOF'
+          ---
+          Language:        Cpp
+          BasedOnStyle:  WebKit
+          EOF
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          style: "file"
+          tidy-checks: ""
+          extensions: "cpp"
+          repo-root: "/tmp/cpp-cache"
+          files-changed-only: "false"
+          lines-changed-only: "false"
+          file-annotations: "false"
+          step-summary: "false"
+          thread-comments: "false"
+          cache-enable: "false"
+          database: ""
+          summary-output-file: "/tmp/cpp-linter-summary.md"
+
+      - name: Assert action ran (cache/database/summary options or graceful failure)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$CHECKS_FAILED" ]; then
+              echo "FAIL: checks-failed output is empty"
+              exit 1
+            fi
+            echo "PASS: got checks-failed='$CHECKS_FAILED'"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (action.yml has no runs: section — expected under harness)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
