@@ -324,7 +324,7 @@ runs:
         $'key=($key)\n' | save --append $env.GITHUB_OUTPUT
     - name: Enable cache
       if: inputs.cache-enable == 'true' || inputs.cache-enable == true
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      uses: chainguard-actions/actions-cache@8de49184b72491a24ed6b2e7fa19407c5efe1539 # v6.1.0
       with:
         path: ${{ runner.temp }}/cpp-linter-action-cache
         key: cpp-linter-action_${{ runner.os }}_${{ steps.compute-cache-key.outputs.key }}
