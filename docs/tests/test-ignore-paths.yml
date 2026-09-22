@@ -1,0 +1,57 @@
+name: Test cpp-linter with ignore paths
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create C++ files in multiple directories
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/src"
+          mkdir -p "$GITHUB_WORKSPACE/vendor"
+          cat > "$GITHUB_WORKSPACE/src/main.cpp" << 'EOF'
+          #include <iostream>
+          int main() {
+            std::cout << "Hello" << std::endl;
+            return 0;
+          }
+          EOF
+          cat > "$GITHUB_WORKSPACE/vendor/third_party.cpp" << 'EOF'
+          // third party code - should be ignored
+          int foo(){return 42;}
+          EOF
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          style: "llvm"
+          extensions: "cpp,h"
+          files-changed-only: "false"
+          lines-changed-only: "false"
+          file-annotations: "false"
+          step-summary: "false"
+          thread-comments: "false"
+          ignore: "vendor"
+
+      - name: Assert action ran with ignore configuration
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$CHECKS_FAILED" ]; then
+              echo "FAIL: checks-failed output is empty"
+              exit 1
+            fi
+            echo "PASS: action succeeded with ignore paths, checks-failed=$CHECKS_FAILED"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected in harness environment)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

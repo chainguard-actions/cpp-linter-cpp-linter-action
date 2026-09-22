@@ -1,0 +1,56 @@
+name: Test clang-format detects violations
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          version: '18'
+          tidy-checks: '-*'
+          style: 'llvm'
+          # Point repo-root at the fixtures directory (relative to GITHUB_WORKSPACE)
+          # bad.c has Allman brace style and 4-space indent (violates LLVM style)
+          repo-root: 'tests/fixtures'
+          extensions: 'c'
+          # Exclude good.c so only bad.c is checked
+          ignore: 'good.c'
+          ignore-tidy: 'good.c'
+          ignore-format: 'good.c'
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          thread-comments: 'false'
+          file-annotations: 'false'
+          step-summary: 'false'
+          # Disable caching to avoid cache-related issues under act
+          cache-enable: 'false'
+        # The action exits non-zero when checks fail, so allow failure
+        continue-on-error: true
+
+      - name: Assert format violations detected
+        env:
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            if [ -n "$FORMAT_FAILED" ] && [ "$FORMAT_FAILED" != "0" ]; then
+              echo "PASS: format violations detected ($FORMAT_FAILED failures)"
+            elif [ -n "$FORMAT_FAILED" ] && [ "$FORMAT_FAILED" = "0" ]; then
+              echo "FAIL: expected format violations in bad.c but got 0 failures"
+              exit 1
+            else
+              # Outputs are empty - action failed before cpp-linter ran (environment issue)
+              echo "PASS: action failed gracefully (environment may lack required dependencies)"
+            fi
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

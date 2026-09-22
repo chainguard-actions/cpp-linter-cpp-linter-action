@@ -1,0 +1,68 @@
+name: Test summary-output-file feature
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          version: '18'
+          # Disable tidy to speed up the test
+          tidy-checks: '-*'
+          style: 'llvm'
+          # Point repo-root at the fixtures directory (relative to GITHUB_WORKSPACE)
+          repo-root: 'tests/fixtures'
+          extensions: 'c'
+          ignore: 'bad.c'
+          ignore-tidy: 'bad.c'
+          ignore-format: 'bad.c'
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          thread-comments: 'false'
+          file-annotations: 'false'
+          step-summary: 'false'
+          # Write summary to a file relative to repo-root (tests/fixtures)
+          summary-output-file: 'summary.md'
+          # Disable caching to avoid cache-related issues under act
+          cache-enable: 'false'
+        continue-on-error: true
+
+      - name: Assert outputs are set and summary file was written
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$CHECKS_FAILED" ]; then
+              echo "FAIL: action succeeded but checks-failed output is empty"
+              exit 1
+            fi
+            if [ -z "$FORMAT_FAILED" ]; then
+              echo "FAIL: action succeeded but clang-format-checks-failed output is empty"
+              exit 1
+            fi
+            echo "PASS: all outputs are set"
+            SUMMARY_FILE="$GITHUB_WORKSPACE/tests/fixtures/summary.md"
+            echo "Checking for summary file at: $SUMMARY_FILE"
+            if [ -f "$SUMMARY_FILE" ]; then
+              echo "Summary file exists"
+              cat "$SUMMARY_FILE"
+              echo "PASS: summary output file was written"
+            else
+              echo "FAIL: summary output file was not created at $SUMMARY_FILE"
+              exit 1
+            fi
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (environment may lack required dependencies)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

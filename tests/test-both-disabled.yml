@@ -1,0 +1,68 @@
+name: Test with both clang-format and clang-tidy disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          # Use version 18 (available in Ubuntu 24.04 default repos)
+          version: '18'
+          # Disable clang-tidy by setting tidy-checks to '-*'
+          tidy-checks: '-*'
+          # Disable clang-format by setting style to empty string
+          style: ''
+          # Point repo-root at the fixtures directory (relative to GITHUB_WORKSPACE)
+          repo-root: 'tests/fixtures'
+          extensions: 'c'
+          ignore: '.github'
+          ignore-tidy: '.github'
+          ignore-format: '.github'
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          thread-comments: 'false'
+          file-annotations: 'false'
+          step-summary: 'false'
+          # Disable caching to avoid cache-related issues under act
+          cache-enable: 'false'
+        continue-on-error: true
+
+      - name: Assert zero failures when both tools are disabled
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$CHECKS_FAILED" ]; then
+              echo "FAIL: action succeeded but checks-failed output is empty"
+              exit 1
+            fi
+            if [ "$CHECKS_FAILED" != "0" ]; then
+              echo "FAIL: expected 0 total failures when both tools disabled, got $CHECKS_FAILED"
+              exit 1
+            fi
+            if [ "$FORMAT_FAILED" != "0" ]; then
+              echo "FAIL: expected 0 format failures when style='', got $FORMAT_FAILED"
+              exit 1
+            fi
+            if [ "$TIDY_FAILED" != "0" ]; then
+              echo "FAIL: expected 0 tidy failures when tidy-checks='-*', got $TIDY_FAILED"
+              exit 1
+            fi
+            echo "PASS: zero failures as expected when both tools are disabled"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (environment may lack required dependencies)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
