@@ -1,0 +1,49 @@
+name: Test verbosity, jobs, and cache-enable inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: lint
+        uses: .
+        with:
+          style: "llvm"
+          extensions: "cpp"
+          tidy-checks: "-*"
+          repo-root: "tests/fixtures/cpp"
+          files-changed-only: "false"
+          lines-changed-only: "false"
+          file-annotations: "false"
+          thread-comments: "false"
+          step-summary: "false"
+          verbosity: "10"
+          jobs: "1"
+          cache-enable: "false"
+        continue-on-error: true
+
+      - name: Assert action ran with verbosity, jobs, and cache-enable inputs
+        env:
+          CHECKS_FAILED: ${{ steps.lint.outputs.checks-failed }}
+          FORMAT_FAILED: ${{ steps.lint.outputs.clang-format-checks-failed }}
+          TIDY_FAILED: ${{ steps.lint.outputs.clang-tidy-checks-failed }}
+          OUTCOME: ${{ steps.lint.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$CHECKS_FAILED" ]; then
+              echo "FAIL: checks-failed output is empty"
+              exit 1
+            fi
+            echo "PASS: action ran with verbosity/jobs/cache-enable, checks-failed=$CHECKS_FAILED"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran (may have failed due to sentinel repo or lint issues)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

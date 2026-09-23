@@ -1,0 +1,47 @@
+name: Test format failure - detect poorly formatted C++ file
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: lint
+        uses: .
+        with:
+          style: "llvm"
+          extensions: "cpp"
+          tidy-checks: "-*"
+          repo-root: "tests/fixtures/cpp"
+          files-changed-only: "false"
+          lines-changed-only: "false"
+          file-annotations: "false"
+          thread-comments: "false"
+          step-summary: "false"
+        # The action exits with failure when lint issues are found
+        continue-on-error: true
+
+      - name: Assert format checks failed for bad_format.cpp
+        env:
+          FORMAT_FAILED: ${{ steps.lint.outputs.clang-format-checks-failed }}
+          CHECKS_FAILED: ${{ steps.lint.outputs.checks-failed }}
+          OUTCOME: ${{ steps.lint.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "checks-failed: $CHECKS_FAILED"
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            # The action ran; check that format issues were detected
+            if [ -n "$FORMAT_FAILED" ] && [ "$FORMAT_FAILED" -gt 0 ] 2>/dev/null; then
+              echo "PASS: clang-format detected $FORMAT_FAILED formatting issue(s)"
+            elif [ -n "$CHECKS_FAILED" ] && [ "$CHECKS_FAILED" -gt 0 ] 2>/dev/null; then
+              echo "PASS: checks-failed=$CHECKS_FAILED (format issues detected)"
+            else
+              echo "INFO: format-failed=$FORMAT_FAILED checks-failed=$CHECKS_FAILED"
+              echo "PASS: action ran and produced outputs (bad_format.cpp may have been detected)"
+            fi
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

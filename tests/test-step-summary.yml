@@ -1,0 +1,49 @@
+name: Test step-summary output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          style: 'llvm'
+          extensions: 'c'
+          tidy-checks: '-*'
+          repo-root: '.'
+          version: '21'
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          ignore: '.github|tests'
+          ignore-tidy: '.github|tests'
+          ignore-format: '.github|tests'
+          thread-comments: 'false'
+          no-lgtm: 'true'
+          step-summary: 'true'
+          file-annotations: 'false'
+          jobs: '1'
+          cache-enable: 'false'
+        continue-on-error: true
+
+      - name: Assert step-summary mode outputs
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if [ "$OUTCOME" != "success" ] && [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+          if [ -z "$CHECKS_FAILED" ]; then
+            echo "FAIL: checks-failed output is empty"
+            exit 1
+          fi
+          echo "PASS: step-summary mode ran successfully"

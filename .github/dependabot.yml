@@ -1,0 +1,48 @@
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      actions:
+        patterns:
+          - "*"
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    cooldown:
+      # GitHub applies a 3-day cooldown to version updates by default; keep it
+      # for third-party packages, but not for the ones this org publishes.
+      default-days: 3
+      exclude:
+        - "cpp-linter"
+        - "clang-tools"
+    groups:
+      org:
+        # org-maintained packages (the "action" dependency group)
+        applies-to: version-updates
+        patterns:
+          - "clang-tools"
+          - "cpp-linter"
+      dev:
+        # everything else: dev tooling + docs (major/minor/patch all in one PR)
+        applies-to: version-updates
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "clang-tools"
+          - "cpp-linter"
+      security:
+        # keep security fixes grouped too (previously happened only by accident)
+        applies-to: security-updates
+        patterns:
+          - "*"

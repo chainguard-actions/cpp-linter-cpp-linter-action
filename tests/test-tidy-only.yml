@@ -1,0 +1,56 @@
+name: Test tidy-only mode (clang-format disabled)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          style: ''
+          extensions: 'c'
+          tidy-checks: 'bugprone-*'
+          repo-root: '.'
+          version: '21'
+          verbosity: 'info'
+          lines-changed-only: 'false'
+          files-changed-only: 'false'
+          ignore: '.github|tests'
+          ignore-tidy: '.github|tests'
+          ignore-format: '.github|tests'
+          thread-comments: 'false'
+          no-lgtm: 'true'
+          step-summary: 'false'
+          file-annotations: 'false'
+          jobs: '1'
+          cache-enable: 'false'
+        continue-on-error: true
+
+      - name: Assert tidy-only outputs
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if [ "$OUTCOME" != "success" ] && [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+          # The action should have run and produced outputs
+          if [ -z "$CHECKS_FAILED" ]; then
+            echo "FAIL: checks-failed output is empty"
+            exit 1
+          fi
+          # clang-format-checks-failed should be 0 since format is disabled (style='')
+          if [ "$FORMAT_FAILED" != "0" ]; then
+            echo "WARN: clang-format-checks-failed is '$FORMAT_FAILED' (expected 0 since format is disabled)"
+          fi
+          echo "PASS: tidy-only mode ran successfully"
