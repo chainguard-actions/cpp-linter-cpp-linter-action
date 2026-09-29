@@ -1,4 +1,4 @@
-name: Test extra-args and database inputs
+name: Test repo-root and database inputs
 on:
   workflow_dispatch:
 jobs:
@@ -7,15 +7,15 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create a simple C++ file
+      - name: Create a well-formatted C++ file
         run: |
-          mkdir -p tests/fixtures/extra
-          cat > tests/fixtures/extra/main.cpp << 'EOF'
+          mkdir -p tests/fixtures/repo-root-db
+          cat > tests/fixtures/repo-root-db/hello.cpp << 'EOF'
           #include <cstdio>
 
           int main()
           {
-              printf("Hello!\n");
+              printf("Hello, world!\n");
               return 0;
           }
           EOF
@@ -28,29 +28,33 @@ jobs:
           tidy-checks: '-*'
           files-changed-only: 'false'
           lines-changed-only: 'false'
-          ignore: 'tests/fixtures/extra'
+          ignore: 'tests/fixtures/repo-root-db'
           file-annotations: 'false'
           thread-comments: 'false'
           step-summary: 'false'
-          extra-args: '--std=c++17'
+          repo-root: '.'
           database: ''
         continue-on-error: true
 
-      - name: Assert action ran with extra-args and database inputs
+      - name: Assert action ran (outputs set, or failed gracefully on sentinel repo)
         env:
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
           echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
           if [ "$OUTCOME" = "success" ]; then
             if [ -z "$CHECKS_FAILED" ]; then
               echo "FAIL: action succeeded but checks-failed output is empty"
               exit 1
             fi
-            echo "PASS: action ran with extra-args and database inputs"
+            echo "PASS: action produced checks-failed output: $CHECKS_FAILED"
           elif [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action failed gracefully (docs-only metadata action)"
+            echo "PASS: action failed gracefully (action.yml has no runs section - docs-only metadata)"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1

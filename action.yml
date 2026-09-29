@@ -385,7 +385,7 @@ runs:
         } else {
           $"https://astral.sh/uv/($env.UV_VERSION)/install.sh"
         }
-        let installer_path = $env.RUNNER_TEMP | path join 'uv-installer'
+        let installer_path = $env.RUNNER_TEMP | path join 'uv_installer'
         http get --raw --redirect-mode follow $uv_installer_url | save --force $installer_path
         if $is_windows {
           let installer_content = open --raw $installer_path
