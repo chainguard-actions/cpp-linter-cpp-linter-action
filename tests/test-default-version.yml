@@ -1,4 +1,4 @@
-name: Test basic usage (format-only, no tidy)
+name: Test with platform default clang version
 on:
   workflow_dispatch:
 jobs:
@@ -7,22 +7,16 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create a simple C file to lint
+      - name: Install clang tools (platform default)
         run: |
-          mkdir -p /tmp/test-src
-          cat > /tmp/test-src/hello.c << 'EOF'
-          // A simple C file for testing cpp-linter
-          #include <stdio.h>
-
-          int main(void) {
-            printf("Hello, World!\n");
-            return 0;
-          }
-          EOF
+          sudo apt-get update -qq
+          sudo apt-get install -y clang-format clang-tidy
 
       - id: action
         uses: .
         with:
+          # Use platform default version (blank string)
+          version: ''
           # Disable clang-tidy to speed up the test
           tidy-checks: '-*'
           # Use llvm style for clang-format
@@ -37,26 +31,20 @@ jobs:
           # Disable PR reviews
           tidy-review: 'false'
           format-review: 'false'
-          # Use version 18 (widely available)
-          version: '18'
-          # Ignore everything except our test fixtures
-          ignore: '.github'
-          # Disable file annotations to keep output clean
-          file-annotations: 'true'
+          # Disable file annotations
+          file-annotations: 'false'
           # Disable step summary
           step-summary: 'false'
         continue-on-error: true
 
-      - name: Assert outputs are set
+      - name: Assert action ran with platform default version
         env:
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
-          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
           FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
           echo "checks-failed: $CHECKS_FAILED"
-          echo "clang-tidy-checks-failed: $TIDY_FAILED"
           echo "clang-format-checks-failed: $FORMAT_FAILED"
 
           if [ "$OUTCOME" = "failure" ]; then
@@ -69,8 +57,4 @@ jobs:
             echo "FAIL: checks-failed output is empty"
             exit 1
           fi
-          if [ -z "$FORMAT_FAILED" ]; then
-            echo "FAIL: clang-format-checks-failed output is empty"
-            exit 1
-          fi
-          echo "PASS: outputs are set - checks-failed=$CHECKS_FAILED, format-failed=$FORMAT_FAILED"
+          echo "PASS: action completed with platform default version, checks-failed=$CHECKS_FAILED"

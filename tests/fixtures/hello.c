@@ -1,4 +1,4 @@
-// A clean C file for testing cpp-linter-action
+// A simple C file for testing cpp-linter
 #include <stdio.h>
 
 int main(void) {

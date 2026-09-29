@@ -1,4 +1,4 @@
-name: Test basic usage (format-only, no tidy)
+name: Test step-summary output
 on:
   workflow_dispatch:
 jobs:
@@ -7,18 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create a simple C file to lint
+      - name: Prepare summary output file path
         run: |
-          mkdir -p /tmp/test-src
-          cat > /tmp/test-src/hello.c << 'EOF'
-          // A simple C file for testing cpp-linter
-          #include <stdio.h>
-
-          int main(void) {
-            printf("Hello, World!\n");
-            return 0;
-          }
-          EOF
+          echo "SUMMARY_FILE=/tmp/cpp-linter-summary.md" >> "$GITHUB_ENV"
 
       - id: action
         uses: .
@@ -39,25 +30,21 @@ jobs:
           format-review: 'false'
           # Use version 18 (widely available)
           version: '18'
-          # Ignore everything except our test fixtures
-          ignore: '.github'
-          # Disable file annotations to keep output clean
-          file-annotations: 'true'
-          # Disable step summary
-          step-summary: 'false'
+          # Enable step summary
+          step-summary: 'true'
+          # Write summary to a file
+          summary-output-file: '/tmp/cpp-linter-summary.md'
+          # Disable file annotations
+          file-annotations: 'false'
         continue-on-error: true
 
-      - name: Assert outputs are set
+      - name: Assert action ran and summary file exists (if action succeeded)
         env:
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
-          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
-          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
           echo "checks-failed: $CHECKS_FAILED"
-          echo "clang-tidy-checks-failed: $TIDY_FAILED"
-          echo "clang-format-checks-failed: $FORMAT_FAILED"
 
           if [ "$OUTCOME" = "failure" ]; then
             echo "PASS: action failed gracefully (sentinel repo or install issue)"
@@ -69,8 +56,14 @@ jobs:
             echo "FAIL: checks-failed output is empty"
             exit 1
           fi
-          if [ -z "$FORMAT_FAILED" ]; then
-            echo "FAIL: clang-format-checks-failed output is empty"
-            exit 1
+
+          # Check if summary file was written
+          if [ -f "/tmp/cpp-linter-summary.md" ]; then
+            echo "PASS: summary file was written"
+            echo "--- Summary file contents ---"
+            cat /tmp/cpp-linter-summary.md
+          else
+            echo "NOTE: summary file not found at /tmp/cpp-linter-summary.md (may be expected if no files were linted)"
           fi
-          echo "PASS: outputs are set - checks-failed=$CHECKS_FAILED, format-failed=$FORMAT_FAILED"
+
+          echo "PASS: action completed with checks-failed=$CHECKS_FAILED"

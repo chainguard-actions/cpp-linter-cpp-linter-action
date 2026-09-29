@@ -1,4 +1,4 @@
-name: Test basic usage (format-only, no tidy)
+name: Test with both linters disabled
 on:
   workflow_dispatch:
 jobs:
@@ -7,28 +7,13 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create a simple C file to lint
-        run: |
-          mkdir -p /tmp/test-src
-          cat > /tmp/test-src/hello.c << 'EOF'
-          // A simple C file for testing cpp-linter
-          #include <stdio.h>
-
-          int main(void) {
-            printf("Hello, World!\n");
-            return 0;
-          }
-          EOF
-
       - id: action
         uses: .
         with:
-          # Disable clang-tidy to speed up the test
+          # Disable clang-tidy entirely
           tidy-checks: '-*'
-          # Use llvm style for clang-format
-          style: 'llvm'
-          # Only check C files
-          extensions: 'c'
+          # Disable clang-format entirely
+          style: ''
           # Analyze all files (not just changed ones) to avoid GitHub API calls
           files-changed-only: 'false'
           lines-changed-only: 'false'
@@ -39,15 +24,13 @@ jobs:
           format-review: 'false'
           # Use version 18 (widely available)
           version: '18'
-          # Ignore everything except our test fixtures
-          ignore: '.github'
-          # Disable file annotations to keep output clean
-          file-annotations: 'true'
+          # Disable file annotations
+          file-annotations: 'false'
           # Disable step summary
           step-summary: 'false'
         continue-on-error: true
 
-      - name: Assert outputs are set
+      - name: Assert action ran (both linters disabled)
         env:
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
           TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
@@ -64,13 +47,13 @@ jobs:
             exit 0
           fi
 
-          # If action succeeded, outputs should be numeric
+          # When both linters are disabled, checks-failed should be 0
           if [ -z "$CHECKS_FAILED" ]; then
             echo "FAIL: checks-failed output is empty"
             exit 1
           fi
-          if [ -z "$FORMAT_FAILED" ]; then
-            echo "FAIL: clang-format-checks-failed output is empty"
+          if [ "$CHECKS_FAILED" != "0" ]; then
+            echo "FAIL: expected checks-failed=0 when both linters disabled, got: $CHECKS_FAILED"
             exit 1
           fi
-          echo "PASS: outputs are set - checks-failed=$CHECKS_FAILED, format-failed=$FORMAT_FAILED"
+          echo "PASS: checks-failed=0 as expected when both linters are disabled"
