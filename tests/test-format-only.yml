@@ -1,0 +1,59 @@
+name: Test cpp-linter with clang-format only (well-formatted file)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          # Use LLVM style for clang-format
+          style: 'llvm'
+          # Disable clang-tidy entirely
+          tidy-checks: '-*'
+          # Only look at C files
+          extensions: 'c'
+          repo-root: '.'
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          file-annotations: 'false'
+          thread-comments: 'false'
+          step-summary: 'false'
+          version: '20'
+          verbosity: 'info'
+          # Ignore everything except our fixture src directory
+          ignore: '.github|tests/fixtures/src'
+
+      - name: Assert format outputs are set and numeric
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+
+          # Verify outputs are numeric (action ran successfully)
+          if ! [[ "$CHECKS_FAILED" =~ ^[0-9]+$ ]]; then
+            echo "FAIL: checks-failed output is not a number: '$CHECKS_FAILED'"
+            exit 1
+          fi
+          echo "PASS: checks-failed is numeric: $CHECKS_FAILED"
+
+          # clang-tidy is disabled, so tidy failures should be 0
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-tidy-checks-failed=0 (tidy disabled), got '$TIDY_FAILED'"
+            exit 1
+          fi
+          echo "PASS: clang-tidy-checks-failed=0 as expected (tidy disabled)"
+
+          # format failures should be numeric
+          if ! [[ "$FORMAT_FAILED" =~ ^[0-9]+$ ]]; then
+            echo "FAIL: clang-format-checks-failed output is not a number: '$FORMAT_FAILED'"
+            exit 1
+          fi
+          echo "PASS: clang-format-checks-failed is numeric: $FORMAT_FAILED"

@@ -1,0 +1,61 @@
+name: Test cpp-linter basic usage with outputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          # Use LLVM style for clang-format
+          style: 'llvm'
+          # Disable clang-tidy to keep test fast
+          tidy-checks: '-*'
+          # Only look at C files
+          extensions: 'c'
+          repo-root: '.'
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          file-annotations: 'false'
+          thread-comments: 'false'
+          step-summary: 'false'
+          version: '20'
+          verbosity: 'info'
+
+      - name: Assert all three outputs are present and numeric
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+
+          # All three outputs must be present and numeric
+          for var_name in CHECKS_FAILED TIDY_FAILED FORMAT_FAILED; do
+            val="${!var_name}"
+            if [ -z "$val" ]; then
+              echo "FAIL: output $var_name is empty/missing"
+              exit 1
+            fi
+            if ! [[ "$val" =~ ^[0-9]+$ ]]; then
+              echo "FAIL: output $var_name is not a non-negative integer: '$val'"
+              exit 1
+            fi
+            echo "PASS: $var_name=$val (numeric)"
+          done
+
+          # checks-failed should equal tidy + format failures
+          expected=$(( TIDY_FAILED + FORMAT_FAILED ))
+          if [ "$CHECKS_FAILED" != "$expected" ]; then
+            echo "FAIL: checks-failed ($CHECKS_FAILED) != tidy ($TIDY_FAILED) + format ($FORMAT_FAILED) = $expected"
+            exit 1
+          fi
+          echo "PASS: checks-failed ($CHECKS_FAILED) == tidy ($TIDY_FAILED) + format ($FORMAT_FAILED)"

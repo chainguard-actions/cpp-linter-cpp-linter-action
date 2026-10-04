@@ -1,0 +1,55 @@
+name: Test cpp-linter with all linting disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          # Disable clang-format entirely
+          style: ''
+          # Disable clang-tidy entirely
+          tidy-checks: '-*'
+          # Only look at C files in our fixture directory
+          extensions: 'c'
+          repo-root: '.'
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          file-annotations: 'false'
+          thread-comments: 'false'
+          step-summary: 'false'
+          version: '20'
+          verbosity: 'info'
+
+      - name: Assert checks-failed output is set
+        env:
+          CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "checks-failed: $CHECKS_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+
+          # When both linters are disabled, checks-failed should be 0
+          if [ "$CHECKS_FAILED" != "0" ]; then
+            echo "FAIL: expected checks-failed=0, got '$CHECKS_FAILED'"
+            exit 1
+          fi
+          echo "PASS: checks-failed=0 as expected"
+
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-tidy-checks-failed=0, got '$TIDY_FAILED'"
+            exit 1
+          fi
+          echo "PASS: clang-tidy-checks-failed=0 as expected"
+
+          if [ "$FORMAT_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-format-checks-failed=0, got '$FORMAT_FAILED'"
+            exit 1
+          fi
+          echo "PASS: clang-format-checks-failed=0 as expected"

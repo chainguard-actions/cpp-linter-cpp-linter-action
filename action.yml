@@ -374,15 +374,13 @@ runs:
         } else {
           $"https://astral.sh/uv/($env.UV_VERSION)/install.sh"
         }
+        let uv_installer_path = $action_path | path join 'uv_installer'
+        http get --raw --redirect-mode follow $uv_installer_url | save --force $uv_installer_path
         if $is_windows {
-          let installer_path = $"($env.RUNNER_TEMP)/uv_installer.ps1"
-          http get --raw --redirect-mode follow $uv_installer_url | save --force $installer_path
-          ^powershell -ExecutionPolicy ByPass -File $installer_path
+          ^powershell -ExecutionPolicy ByPass (open --raw $uv_installer_path)
         } else {
-          let installer_path = $"($env.RUNNER_TEMP)/uv_installer.sh"
-          http get --raw --redirect-mode follow $uv_installer_url | save --force $installer_path
-          ^chmod +x $installer_path
-          ^sh $installer_path
+          ^chmod +x $uv_installer_path
+          ^sh $uv_installer_path
         }
 
         let gh_action_debug = $env | get --optional 'ACTIONS_STEP_DEBUG'
@@ -400,9 +398,9 @@ runs:
         }
         ^$'($env.UV_INSTALL_DIR)/uv' ...$uv_args
 
-        let input_version = $env.INPUT_VERSION
-        print $"\n(ansi purple)Ensuring clang-format and clang-tidy ($input_version) are present(ansi reset)"
-        let cmd = [clang-tools -i $input_version -b]
+        let version = $env.INPUT_VERSION
+        print $"\n(ansi purple)Ensuring clang-format and clang-tidy ($version) are present(ansi reset)"
+        let cmd = [clang-tools -i $version -b]
         $uv_args = [run --no-sync --project $action_path --directory (pwd)]
         if $verbosity {
           $uv_args = $uv_args | append '-v'

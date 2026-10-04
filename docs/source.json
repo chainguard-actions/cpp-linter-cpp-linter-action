@@ -2,6 +2,7 @@
   "owner": "cpp-linter",
   "repo": "cpp-linter-action",
   "version": "v2.17.0",
+  "path": "docs",
   "commit_sha": "24467985494bed9bfc398489b6ec12469beaf4da",
   "url": "https://github.com/cpp-linter/cpp-linter-action",
   "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",

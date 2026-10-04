@@ -8,7 +8,7 @@
 
 **Test Policy SHA:** `843adf9e4b8f85d0c08b27b9d0b09dd094b54702`
 
-**Harden Agent Version:** `1`
+**Harden Agent Version:** `2`
 
 Action **cpp-linter--cpp-linter-action/v2.17.0** was hardened automatically. 34 finding(s) were identified and resolved across 1 iteration(s).
 
@@ -16,23 +16,52 @@ Action **cpp-linter--cpp-linter-action/v2.17.0** was hardened automatically. 34 
 
 ### script-injection (severity: high)
 
-Multiple ${{ inputs.* }} and ${{ runner.os }} expressions are directly interpolated inside run: shell command strings (sub-rule a). This allows an attacker who controls the calling workflow's inputs to inject arbitrary shell commands.
+Sub-rule (a): Multiple run: blocks in action.yml directly interpolate ${{ inputs.* }} and ${{ runner.os }} expressions into Nushell shell scripts. Even though Nushell is used instead of bash, GitHub Actions performs template substitution before the shell processes the script, so an attacker-controlled input value (e.g. inputs.style, inputs.ignore, inputs.extra-args, inputs.version) is injected verbatim into the script text before execution. Affected steps and offending lines:
 
-- 'Install Linux clang dependencies' step: `clang-format-${{ inputs.version }}`, `clang-tidy-${{ inputs.version }}`, and `${{ inputs.version }}` used directly as nu-shell list elements and command arguments.
-- 'Install MacOS clang dependencies' step: `'llvm@${{ inputs.version }}'`, `"/usr/local/bin/clang-format-${{ inputs.version }}"`, `"/usr/local/bin/clang-tidy-${{ inputs.version }}"` interpolated directly.
-- 'Setup cpp-linter dependencies' step: `'${{ inputs.verbosity }}'` and `${{ inputs.version }}` interpolated directly.
-- 'Run cpp-linter' step: All inputs (`${{ inputs.style }}`, `${{ inputs.extensions }}`, `${{ inputs.tidy-checks }}`, `${{ inputs.repo-root }}`, `${{ inputs.version }}`, `${{ inputs.verbosity }}`, `${{ inputs.lines-changed-only }}`, `${{ inputs.files-changed-only }}`, `${{ inputs.thread-comments }}`, `${{ inputs.no-lgtm }}`, `${{ inputs.step-summary }}`, `${{ inputs.ignore }}`, `${{ inputs.ignore-tidy }}`, `${{ inputs.ignore-format }}`, `${{ inputs.database }}`, `${{ inputs.file-annotations }}`, `${{ inputs.extra-args }}`, `${{ inputs.tidy-review }}`, `${{ inputs.format-review }}`, `${{ inputs.passive-reviews }}`, `${{ inputs.jobs }}`) and `${{ runner.os }}` are interpolated directly inside the run: block.
+'Install Linux clang dependencies': `install -y clang-format-${{ inputs.version }} clang-tidy-${{ inputs.version }}` and `^sudo/^bash ... ${{ inputs.version }}`
+
+'Install MacOS clang dependencies': `'llvm@${{ inputs.version }}'`, `clang-format-${{ inputs.version }}`, `clang-tidy-${{ inputs.version }}`
+
+'Setup cpp-linter dependencies': `'${{ inputs.verbosity }}' == 'debug'` and `clang-tools -i ${{ inputs.version }} -b`
+
+'Run cpp-linter': all `--flag=${{ inputs.* }}` arguments and `'${{ runner.os }}' == 'Linux'`
 
 Locations:
 
-- `action.yml:253`
 - `action.yml:278`
-- `action.yml:295`
-- `action.yml:310`
+- `action.yml:287`
+- `action.yml:288`
+- `action.yml:302`
+- `action.yml:308`
+- `action.yml:309`
+- `action.yml:333`
+- `action.yml:344`
+- `action.yml:345`
+- `action.yml:358`
+- `action.yml:359`
+- `action.yml:360`
+- `action.yml:361`
+- `action.yml:362`
+- `action.yml:363`
+- `action.yml:364`
+- `action.yml:365`
+- `action.yml:366`
+- `action.yml:367`
+- `action.yml:368`
+- `action.yml:369`
+- `action.yml:370`
+- `action.yml:371`
+- `action.yml:372`
+- `action.yml:373`
+- `action.yml:374`
+- `action.yml:375`
+- `action.yml:376`
+- `action.yml:377`
+- `action.yml:393`
 
 ### unsafe-shell (severity: high)
 
-The 'Setup cpp-linter dependencies' step fetches a remote installer script from astral.sh via `http get --raw --redirect-mode follow $uv_installer_url` and then pipes the result directly to a shell interpreter with `$installer | ^sh`. This is equivalent to `curl URL | sh` — executing untrusted remote content without any integrity verification.
+In the 'Setup cpp-linter dependencies' run: block, a remote installer script is fetched with `http get --raw --redirect-mode follow $uv_installer_url` and the result is stored in `$installer`, then immediately piped to the shell via `$installer | ^sh`. This is equivalent to `curl URL | sh` — remote content is executed directly without any integrity verification, allowing a compromised or MITM'd installer URL to execute arbitrary code on the runner.
 
 Locations:
 
@@ -302,13 +331,5 @@ Locations:
 
 **Notes:**
 
-Fixed all security findings in action.yml:
-
-1. **script-injection / static-inline-injection** (all 4 affected steps):
-   - 'Install Linux clang dependencies': Added `env: INPUT_VERSION: ${{ inputs.version }}` and replaced all 3 inline `${{ inputs.version }}` uses in the run: block with nu shell variable `$version` (from `$env.INPUT_VERSION`).
-   - 'Install MacOS clang dependencies': Added `env: INPUT_VERSION: ${{ inputs.version }}` and replaced all 3 inline `${{ inputs.version }}` uses with `$version`.
-   - 'Setup cpp-linter dependencies': Added `INPUT_VERBOSITY` and `INPUT_VERSION` to env: block; replaced inline `${{ inputs.verbosity }}` and `${{ inputs.version }}` uses with `$env.INPUT_VERBOSITY` and `$env.INPUT_VERSION`.
-   - 'Run cpp-linter': Added a full env: block with all 22 inputs plus `RUNNER_OS_NAME: ${{ runner.os }}`; replaced all inline `${{ inputs.* }}` and `${{ runner.os }}` expressions with `$env.INPUT_*` and `$env.RUNNER_OS_NAME` references.
-
-2. **unsafe-shell**: Fixed the 'Setup cpp-linter dependencies' step to no longer pipe remote installer content directly to sh/powershell. The installer is now saved to a temp file first (`save --force $installer_path`) and then executed separately (`^sh $installer_path` or `^powershell -ExecutionPolicy ByPass -File $installer_path`), eliminating the curl|sh anti-pattern.
+Fixed all script-injection and static-inline-injection findings by moving all ${{ inputs.* }} and ${{ runner.os }} expressions from run: blocks into env: blocks, then referencing them as $env.INPUT_* variables using Nushell's string interpolation syntax ($"..."). Fixed the unsafe-shell finding in 'Setup cpp-linter dependencies' by saving the uv installer script to a file (uv_installer_path) before executing it with ^sh, instead of piping the downloaded content directly to ^sh. All four affected steps were updated: 'Install Linux clang dependencies', 'Install MacOS clang dependencies', 'Setup cpp-linter dependencies', and 'Run cpp-linter'.
 
