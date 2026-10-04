@@ -259,7 +259,7 @@ runs:
     - name: Setup nu shell
       # I'm done writing everything twice (in bash and powershell)
       # With nu shell, we use the same shell/script for all platforms
-      uses: hustcer/setup-nu@92c296ba1ba2ba04cc948ab64ddefe192dc13f0c # v3.23
+      uses: chainguard-actions/hustcer-setup-nu@e612629a5228ed04a2bfe06884e4c0f7279c7512 # v3.23
       with:
         version: '0.106.1'
     - name: Compute cache key
@@ -280,7 +280,7 @@ runs:
         $'key=($key)\n' | save --append $env.GITHUB_OUTPUT
     - name: Enable cache
       if: inputs.cache-enable == 'true' || inputs.cache-enable == true
-      uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      uses: chainguard-actions/actions-cache@6ced8aa8a4c1b8ca5186b6b39ac7a8b5d2f4cc11 # v5.0.1
       with:
         path: ${{ runner.temp }}/cpp-linter-action-cache
         key: cpp-linter-action_${{ runner.os }}_${{ steps.compute-cache-key.outputs.key }}
@@ -356,8 +356,8 @@ runs:
       env:
         UV_NO_MODIFY_PATH: 1
         UV_VERSION: '0.9.5'
-        INPUT_VERBOSITY: ${{ inputs.verbosity }}
         INPUT_VERSION: ${{ inputs.version }}
+        INPUT_VERBOSITY: ${{ inputs.verbosity }}
         INPUT_TIDY_CHECKS: ${{ inputs.tidy-checks }}
         INPUT_STYLE: ${{ inputs.style }}
       run: |-
@@ -475,7 +475,7 @@ runs:
         INPUT_FORMAT_REVIEW: ${{ inputs.format-review }}
         INPUT_PASSIVE_REVIEWS: ${{ inputs.passive-reviews }}
         INPUT_JOBS: ${{ inputs.jobs }}
-        RUNNER_OS_NAME: ${{ runner.os }}
+        RUNNER_OS: ${{ runner.os }}
       run: |-
         let action_path = $env.GITHUB_ACTION_PATH | path expand
         $env.UV_INSTALL_DIR = $action_path | path join 'bin'
@@ -519,7 +519,7 @@ runs:
 
         let local_bin = '~/.local/bin' | path expand
         if (
-          ($env.RUNNER_OS_NAME == 'Linux')
+          ($env.RUNNER_OS == 'Linux')
           and ($local_bin | path exists)
           and (not ($env.PATH | any {$in == $local_bin}))
         ) {
