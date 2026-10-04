@@ -10,132 +10,55 @@
 
 **Harden Agent Version:** `2`
 
-Action **cpp-linter--cpp-linter-action/v2.17.1** was hardened automatically. 39 finding(s) were identified and resolved across 1 iteration(s).
+Action **cpp-linter--cpp-linter-action/v2.17.1** was hardened automatically. 33 finding(s) were identified and resolved across 2 iteration(s).
 
 ## Findings Fixed
 
 ### script-injection (severity: high)
 
-Sub-rule (a): Multiple ${{ inputs.* }} expressions are directly interpolated inside run: blocks in action.yml (nu shell scripts). In the 'Install Linux clang dependencies' step, `${{ inputs.version }}` is embedded directly in a nu shell array literal used as apt-get arguments. In the 'Install MacOS clang dependencies' step, `${{ inputs.version }}` is embedded in brew install arguments and symlink paths. In the 'Setup cpp-linter dependencies' step, `${{ inputs.verbosity }}` and `${{ inputs.version }}` are embedded directly. In the 'Run cpp-linter' step, all inputs (style, extensions, tidy-checks, repo-root, version, verbosity, lines-changed-only, files-changed-only, thread-comments, no-lgtm, step-summary, ignore, ignore-tidy, ignore-format, database, file-annotations, extra-args, tidy-review, format-review, passive-reviews, jobs) and `${{ runner.os }}` are interpolated directly into the run: script. Any of these inputs can contain shell metacharacters or newlines that are interpreted before the nu shell parses the script.
+Multiple `${{ inputs.* }}` and `${{ runner.os }}` expressions are directly interpolated inside `run:` shell command strings (sub-rule a). YAML template substitution occurs before the nushell interpreter sees the value, allowing an attacker who controls these inputs to inject arbitrary shell commands.
+
+Affected occurrences:
+- 'Install Linux clang dependencies' step: `clang-format-${{ inputs.version }} clang-tidy-${{ inputs.version }}` in apt_install_args list; `${{ inputs.version }}` passed directly to `llvm_install.sh`.
+- 'Install MacOS clang dependencies' step: `'llvm@${{ inputs.version }}'` in brew_install_arg; `clang-format-${{ inputs.version }}` and `clang-tidy-${{ inputs.version }}` in ln -s commands.
+- 'Setup cpp-linter dependencies' step: `'${{ inputs.verbosity }}' == 'debug'` comparison; `${{ inputs.version }}` in clang-tools command list.
+- 'Run cpp-linter' step: all inputs (`style`, `extensions`, `tidy-checks`, `repo-root`, `version`, `verbosity`, `lines-changed-only`, `files-changed-only`, `thread-comments`, `no-lgtm`, `step-summary`, `ignore`, `ignore-tidy`, `ignore-format`, `database`, `file-annotations`, `extra-args`, `tidy-review`, `format-review`, `passive-reviews`, `jobs`) interpolated directly into the args array; `'${{ inputs.verbosity }}' == 'debug'`; `'${{ runner.os }}' == 'Linux'`.
 
 Locations:
 
 - `action.yml:248`
-- `action.yml:271`
+- `action.yml:249`
+- `action.yml:263`
+- `action.yml:267`
 - `action.yml:280`
-- `action.yml:295`
-- `action.yml:300`
-- `action.yml:310`
-- `action.yml:316`
-- `action.yml:330`
-- `action.yml:340`
-- `action.yml:348`
-- `action.yml:360`
-- `action.yml:361`
-- `action.yml:362`
-- `action.yml:363`
-- `action.yml:364`
-- `action.yml:365`
-- `action.yml:366`
-- `action.yml:367`
-- `action.yml:368`
-- `action.yml:369`
-- `action.yml:370`
-- `action.yml:371`
-- `action.yml:372`
-- `action.yml:373`
-- `action.yml:374`
-- `action.yml:375`
-- `action.yml:376`
-- `action.yml:377`
-- `action.yml:378`
-- `action.yml:379`
-- `action.yml:380`
-- `action.yml:395`
-
-### script-injection (severity: high)
-
-Sub-rule (a): In .github/workflows/release.yml, the 'Update rolling tag' step directly interpolates `${{ inputs.tag || '$MAJOR_VERSION' }}` into git tag and git push shell commands, and the checkout step uses `${{ inputs.ref }}`. An attacker-controlled `inputs.tag` value (via workflow_dispatch) could inject arbitrary shell commands into the git tag --annotate --message argument and the git push command.
-
-Locations:
-
-- `.github/workflows/release.yml:30`
-- `.github/workflows/release.yml:34`
-- `.github/workflows/release.yml:35`
-- `.github/workflows/release.yml:36`
-
-### script-injection (severity: high)
-
-Sub-rule (a): In .github/workflows/cpp-linter.yml, the 'Fail fast?!' step directly interpolates `${{ steps.linter.outputs.checks-failed }}` inside an echo command in a run: block. Step outputs are workflow-controllable and must not be interpolated directly into shell scripts.
-
-Locations:
-
-- `.github/workflows/cpp-linter.yml:24`
-
-### script-injection (severity: high)
-
-Sub-rule (a): In .github/workflows/self-test.yml, the 'Fail fast?!' step directly interpolates `${{ steps.linter.outputs.checks-failed }}`, `${{ steps.linter.outputs.clang-tidy-checks-failed }}`, and `${{ steps.linter.outputs.clang-format-checks-failed }}` inside echo commands in a run: block. Step outputs are workflow-controllable and must not be interpolated directly into shell scripts.
-
-Locations:
-
-- `.github/workflows/self-test.yml:62`
-- `.github/workflows/self-test.yml:63`
-- `.github/workflows/self-test.yml:64`
-
-### unpinned-uses (severity: high)
-
-Multiple workflow files reference actions or reusable workflows using mutable tag or branch refs instead of pinned full-length SHA commits:
-- cpp-linter.yml: `cpp-linter/cpp-linter-action@main` (branch ref)
-- self-test.yml: `actions/cache@v5` (tag ref)
-- labeler.yml: `cpp-linter/.github/.github/workflows/pr-labeler.yml@main` (branch ref)
-- mkdocs-deploy.yml: `cpp-linter/.github/.github/workflows/mkdocs.yml@main` (branch ref)
-- pre-commit.yml: `cpp-linter/.github/.github/workflows/pre-commit.yml@main` (branch ref)
-- release-drafter.yml: `cpp-linter/.github/.github/workflows/release-drafter.yml@main` (branch ref)
-- stale.yml: `cpp-linter/.github/.github/workflows/stale.yml@main` (branch ref)
-- examples/only-PR-comments.yml: `actions/checkout@v5`, `cpp-linter/cpp-linter-action@v2`
-- examples/only-clang-format.yml: `actions/checkout@v5`, `cpp-linter/cpp-linter-action@v2`
-- examples/only-clang-tidy.yml: `actions/checkout@v5`, `cpp-linter/cpp-linter-action@v2`
-
-Locations:
-
-- `.github/workflows/cpp-linter.yml:16`
-- `.github/workflows/self-test.yml:30`
-- `.github/workflows/labeler.yml:11`
-- `.github/workflows/mkdocs-deploy.yml:10`
-- `.github/workflows/pre-commit.yml:9`
-- `.github/workflows/release-drafter.yml:12`
-- `.github/workflows/stale.yml:9`
-- `.github/workflows/examples/only-PR-comments.yml:13`
-- `.github/workflows/examples/only-PR-comments.yml:16`
-- `.github/workflows/examples/only-clang-format.yml:13`
-- `.github/workflows/examples/only-clang-format.yml:16`
-- `.github/workflows/examples/only-clang-tidy.yml:13`
-- `.github/workflows/examples/only-clang-tidy.yml:16`
-
-### missing-permissions (severity: medium)
-
-Several workflow files have no top-level `permissions:` key and at least one job also has no `permissions:` key, meaning the default (broad) token permissions apply:
-- cpp-linter.yml: no top-level permissions, the `cpp-linter` job has no job-level permissions block.
-- mkdocs-deploy.yml: no top-level permissions, the `build-docs` job has no job-level permissions block.
-- pre-commit.yml: no top-level permissions, the `pre-commit` job has no job-level permissions block.
-- examples/only-clang-format.yml: no top-level permissions, the `cpp-linter` job has no job-level permissions block.
-- examples/only-clang-tidy.yml: no top-level permissions, the `cpp-linter` job has no job-level permissions block.
-
-Locations:
-
-- `.github/workflows/cpp-linter.yml:1`
-- `.github/workflows/mkdocs-deploy.yml:1`
-- `.github/workflows/pre-commit.yml:1`
-- `.github/workflows/examples/only-clang-format.yml:1`
-- `.github/workflows/examples/only-clang-tidy.yml:1`
-
-### unsafe-shell (severity: high)
-
-In action.yml, the 'Setup cpp-linter dependencies' step downloads a remote installer script via `http get --raw --redirect-mode follow $uv_installer_url` and pipes the result directly to `^sh` (the shell) without first saving it to a file for inspection. This is the nushell equivalent of `curl URL | sh`, which allows a compromised or malicious remote server to execute arbitrary code on the runner. The URL is constructed from the `UV_VERSION` env var (set to a literal in the same step), but the pattern itself is unsafe.
-
-Locations:
-
+- `action.yml:285`
+- `action.yml:286`
+- `action.yml:313`
+- `action.yml:323`
 - `action.yml:325`
+- `action.yml:340`
+- `action.yml:341`
+- `action.yml:342`
+- `action.yml:343`
+- `action.yml:344`
+- `action.yml:345`
+- `action.yml:346`
+- `action.yml:347`
+- `action.yml:348`
+- `action.yml:349`
+- `action.yml:350`
+- `action.yml:351`
+- `action.yml:352`
+- `action.yml:353`
+- `action.yml:354`
+- `action.yml:355`
+- `action.yml:356`
+- `action.yml:357`
+- `action.yml:358`
+- `action.yml:359`
+- `action.yml:360`
+- `action.yml:369`
+- `action.yml:376`
 
 ### static-inline-injection (severity: high)
 
@@ -397,23 +320,25 @@ Locations:
 
 ### Iteration 1
 
-**Fixes applied:** script-injection, unpinned-uses, missing-permissions, unsafe-shell, static-inline-injection
+**Fixes applied:** script-injection, static-inline-injection
 
 **Notes:**
 
-Fixed all findings across action.yml and multiple workflow files:
+Fixed all script injection vulnerabilities in action.yml by moving ${{ inputs.* }} and ${{ runner.os }} expressions from run: shell script bodies into env: blocks, then referencing them as $env.INPUT_* nushell environment variables.
 
-1. **script-injection / static-inline-injection (action.yml)**: Moved all ${{ inputs.* }} and ${{ runner.os }} expressions out of run: blocks into env: blocks for all four affected steps. Nu shell scripts now reference values via $env.INPUT_* variables.
+1. 'Install Linux clang dependencies': Added env: { INPUT_VERSION } block; replaced ${{ inputs.version }} in apt_install_args list and llvm_install.sh invocations with nushell variable $version (assigned from $env.INPUT_VERSION).
 
-2. **script-injection (release.yml)**: Moved ${{ inputs.tag }} to env: block as INPUT_TAG; shell script uses ${INPUT_TAG:-$MAJOR_VERSION} safely with proper quoting.
+2. 'Install MacOS clang dependencies': Added env: { INPUT_VERSION } block; replaced ${{ inputs.version }} in brew_install_arg and ln -s path strings with nushell interpolation using $version.
 
-3. **script-injection (cpp-linter.yml)**: Moved ${{ steps.linter.outputs.checks-failed }} to env: block as CHECKS_FAILED.
+3. 'Setup cpp-linter dependencies': Added INPUT_VERBOSITY and INPUT_VERSION to existing env: block; replaced '${{ inputs.verbosity }}' == 'debug' with $env.INPUT_VERBOSITY == 'debug'; replaced ${{ inputs.version }} in clang-tools command with $version from $env.INPUT_VERSION.
 
-4. **script-injection (self-test.yml)**: Moved all three ${{ steps.linter.outputs.* }} expressions to env: block.
+4. 'Run cpp-linter': Added full env: block with all 21 inputs plus RUNNER_OS_NAME=${{ runner.os }}; replaced all ${{ inputs.* }} in args array with $"--flag=($env.INPUT_*)" nushell string interpolation; replaced '${{ inputs.verbosity }}' == 'debug' with $env.INPUT_VERBOSITY == 'debug'; replaced '${{ runner.os }}' == 'Linux' with $env.RUNNER_OS_NAME == 'Linux'.
 
-5. **unpinned-uses**: Pinned all mutable tag/branch refs to full commit SHAs: cpp-linter/cpp-linter-action@main→1b0049fe, actions/cache@v5→caa29612, actions/checkout@v5→fbc6f399, cpp-linter/cpp-linter-action@v2→8e85cd02, cpp-linter/.github workflows@main→2343264e.
+### Iteration 2
 
-6. **missing-permissions**: Added top-level permissions: {} to cpp-linter.yml, mkdocs-deploy.yml, pre-commit.yml, only-clang-format.yml, only-clang-tidy.yml. Added job-level permissions blocks where needed.
+**Fixes applied:** unsafe-shell
 
-7. **unsafe-shell**: Fixed curl|sh equivalent in Setup cpp-linter dependencies step - installer is now saved to a file first, then executed separately with ^sh $installer_path.
+**Notes:**
+
+Fixed the 'Setup cpp-linter dependencies' step in action.yml. The original code used Nu shell's `http get` to fetch the uv installer script into a variable and then piped it directly to `^sh` (or passed it directly to `^powershell` on Windows). The fix saves the downloaded installer to a temporary file using `$nu.temp-path | path join "uv-installer.(ext)"` and `save --force`, then executes the saved file with `^sh $installer_path` or `^powershell -ExecutionPolicy ByPass -File $installer_path` respectively. This eliminates the pipe-remote-content-to-shell anti-pattern.
 
