@@ -356,8 +356,8 @@ runs:
       env:
         UV_NO_MODIFY_PATH: 1
         UV_VERSION: '0.9.5'
-        INPUT_VERSION: ${{ inputs.version }}
         INPUT_VERBOSITY: ${{ inputs.verbosity }}
+        INPUT_VERSION: ${{ inputs.version }}
         INPUT_TIDY_CHECKS: ${{ inputs.tidy-checks }}
         INPUT_STYLE: ${{ inputs.style }}
       run: |-
@@ -376,13 +376,13 @@ runs:
         } else {
           $"https://astral.sh/uv/($env.UV_VERSION)/install.sh"
         }
-        let installer_path = $env.RUNNER_TEMP | path join 'uv_installer'
-        http get --raw --redirect-mode follow $uv_installer_url | save --force $installer_path
+        let uv_installer_path = $action_path | path join 'uv_installer_script'
+        http get --raw --redirect-mode follow $uv_installer_url | save --force $uv_installer_path
         if $is_windows {
-          let installer_content = open --raw $installer_path
+          let installer_content = open --raw $uv_installer_path
           ^powershell -ExecutionPolicy ByPass $installer_content
         } else {
-          ^sh $installer_path
+          ^sh $uv_installer_path
         }
 
         let gh_action_debug = $env | get --optional 'ACTIONS_STEP_DEBUG'
