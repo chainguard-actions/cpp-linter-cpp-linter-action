@@ -1,4 +1,4 @@
-name: Test review options (no-lgtm, tidy-review, format-review, passive-reviews)
+name: Test cache-enable input
 on:
   workflow_dispatch:
 jobs:
@@ -12,8 +12,8 @@ jobs:
 
       - name: Create test C++ file
         run: |
-          mkdir -p /tmp/cpp-review
-          cat > /tmp/cpp-review/hello.cpp << 'EOF'
+          mkdir -p /tmp/cpp-cache
+          cat > /tmp/cpp-cache/main.cpp << 'EOF'
           #include <cstdio>
 
           int main()
@@ -22,7 +22,7 @@ jobs:
               return 0;
           }
           EOF
-          cat > /tmp/cpp-review/.clang-format << 'EOF'
+          cat > /tmp/cpp-cache/.clang-format << 'EOF'
           ---
           Language:        Cpp
           BasedOnStyle:  WebKit
@@ -33,20 +33,17 @@ jobs:
         continue-on-error: true
         with:
           style: "file"
-          tidy-checks: ""
+          tidy-checks: "-*"
           extensions: "cpp"
-          repo-root: "/tmp/cpp-review"
+          repo-root: "/tmp/cpp-cache"
           files-changed-only: "false"
           lines-changed-only: "false"
           file-annotations: "false"
           step-summary: "false"
           thread-comments: "false"
-          no-lgtm: "true"
-          tidy-review: "false"
-          format-review: "false"
-          passive-reviews: "false"
+          cache-enable: "false"
 
-      - name: Assert action ran (review options or graceful failure)
+      - name: Assert action ran (cache-enable input accepted)
         env:
           OUTCOME: ${{ steps.action.outcome }}
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}

@@ -1,4 +1,4 @@
-name: Test selective ignore (ignore-tidy, ignore-format)
+name: Test ignore-tidy and ignore-format inputs
 on:
   workflow_dispatch:
 jobs:
@@ -10,22 +10,14 @@ jobs:
       - name: Install cpp-linter
         run: pip install cpp-linter
 
-      - name: Create test C++ files
+      - name: Create C++ files with separate tidy and format directories
         run: |
-          mkdir -p /tmp/cpp-selective/vendor/tidy
-          mkdir -p /tmp/cpp-selective/vendor/format
-          # File in tidy-ignored dir
-          cat > /tmp/cpp-selective/vendor/tidy/tidy_skip.cpp << 'EOF'
+          mkdir -p /tmp/cpp-ignore-tf/tidy_only /tmp/cpp-ignore-tf/format_only
+          cat > /tmp/cpp-ignore-tf/tidy_only/tidy.cpp << 'EOF'
           #include <stdio.h>
           int main() { printf("Hello\n"); return 0; }
           EOF
-          # File in format-ignored dir
-          cat > /tmp/cpp-selective/vendor/format/fmt_skip.cpp << 'EOF'
-          #include <stdio.h>
-          int main(){printf("Hello\n");return 0;}
-          EOF
-          # Main file to check
-          cat > /tmp/cpp-selective/main.cpp << 'EOF'
+          cat > /tmp/cpp-ignore-tf/format_only/fmt.cpp << 'EOF'
           #include <cstdio>
 
           int main()
@@ -34,7 +26,7 @@ jobs:
               return 0;
           }
           EOF
-          cat > /tmp/cpp-selective/.clang-format << 'EOF'
+          cat > /tmp/cpp-ignore-tf/.clang-format << 'EOF'
           ---
           Language:        Cpp
           BasedOnStyle:  WebKit
@@ -47,26 +39,22 @@ jobs:
           style: "file"
           tidy-checks: "clang-diagnostic-*"
           extensions: "cpp"
-          repo-root: "/tmp/cpp-selective"
+          repo-root: "/tmp/cpp-ignore-tf"
           files-changed-only: "false"
           lines-changed-only: "false"
           file-annotations: "false"
           step-summary: "false"
           thread-comments: "false"
-          ignore-tidy: "vendor/tidy"
-          ignore-format: "vendor/format"
+          ignore-tidy: "tidy_only"
+          ignore-format: "format_only"
 
-      - name: Assert action ran (selective ignore or graceful failure)
+      - name: Assert action ran (ignore-tidy and ignore-format inputs accepted)
         env:
           OUTCOME: ${{ steps.action.outcome }}
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
-          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
-          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
         run: |
           echo "outcome: $OUTCOME"
           echo "checks-failed: $CHECKS_FAILED"
-          echo "clang-format-checks-failed: $FORMAT_FAILED"
-          echo "clang-tidy-checks-failed: $TIDY_FAILED"
           if [ "$OUTCOME" = "success" ]; then
             if [ -z "$CHECKS_FAILED" ]; then
               echo "FAIL: checks-failed output is empty"

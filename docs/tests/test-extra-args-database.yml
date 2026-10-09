@@ -1,4 +1,4 @@
-name: Test cache, database, and summary-output-file options
+name: Test extra-args and database inputs
 on:
   workflow_dispatch:
 jobs:
@@ -10,10 +10,10 @@ jobs:
       - name: Install cpp-linter
         run: pip install cpp-linter
 
-      - name: Create test C++ file
+      - name: Create test C++ file and compile_commands.json
         run: |
-          mkdir -p /tmp/cpp-cache
-          cat > /tmp/cpp-cache/hello.cpp << 'EOF'
+          mkdir -p /tmp/cpp-extra
+          cat > /tmp/cpp-extra/main.cpp << 'EOF'
           #include <cstdio>
 
           int main()
@@ -22,10 +22,19 @@ jobs:
               return 0;
           }
           EOF
-          cat > /tmp/cpp-cache/.clang-format << 'EOF'
+          cat > /tmp/cpp-extra/.clang-format << 'EOF'
           ---
           Language:        Cpp
           BasedOnStyle:  WebKit
+          EOF
+          cat > /tmp/cpp-extra/compile_commands.json << 'EOF'
+          [
+            {
+              "directory": "/tmp/cpp-extra",
+              "command": "c++ -o main.o -c main.cpp",
+              "file": "main.cpp"
+            }
+          ]
           EOF
 
       - id: action
@@ -33,19 +42,18 @@ jobs:
         continue-on-error: true
         with:
           style: "file"
-          tidy-checks: ""
+          tidy-checks: "-*"
           extensions: "cpp"
-          repo-root: "/tmp/cpp-cache"
+          repo-root: "/tmp/cpp-extra"
           files-changed-only: "false"
           lines-changed-only: "false"
           file-annotations: "false"
           step-summary: "false"
           thread-comments: "false"
-          cache-enable: "false"
-          database: ""
-          summary-output-file: "/tmp/cpp-linter-summary.md"
+          extra-args: "--std=c++17"
+          database: "/tmp/cpp-extra"
 
-      - name: Assert action ran (cache/database/summary options or graceful failure)
+      - name: Assert action ran (extra-args and database inputs accepted)
         env:
           OUTCOME: ${{ steps.action.outcome }}
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}

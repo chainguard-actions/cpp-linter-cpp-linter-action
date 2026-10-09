@@ -1,4 +1,4 @@
-name: Test extra options (verbosity, extra-args, jobs)
+name: Test no-lgtm and summary-output-file inputs
 on:
   workflow_dispatch:
 jobs:
@@ -12,8 +12,8 @@ jobs:
 
       - name: Create test C++ file
         run: |
-          mkdir -p /tmp/cpp-extra
-          cat > /tmp/cpp-extra/hello.cpp << 'EOF'
+          mkdir -p /tmp/cpp-nolgtm
+          cat > /tmp/cpp-nolgtm/main.cpp << 'EOF'
           #include <cstdio>
 
           int main()
@@ -22,7 +22,7 @@ jobs:
               return 0;
           }
           EOF
-          cat > /tmp/cpp-extra/.clang-format << 'EOF'
+          cat > /tmp/cpp-nolgtm/.clang-format << 'EOF'
           ---
           Language:        Cpp
           BasedOnStyle:  WebKit
@@ -33,19 +33,18 @@ jobs:
         continue-on-error: true
         with:
           style: "file"
-          tidy-checks: ""
+          tidy-checks: "-*"
           extensions: "cpp"
-          repo-root: "/tmp/cpp-extra"
+          repo-root: "/tmp/cpp-nolgtm"
           files-changed-only: "false"
           lines-changed-only: "false"
           file-annotations: "false"
-          step-summary: "false"
+          step-summary: "true"
           thread-comments: "false"
-          verbosity: "10"
-          extra-args: "--extra-arg=-std=c++17"
-          jobs: "1"
+          no-lgtm: "true"
+          summary-output-file: "/tmp/cpp-nolgtm/summary.md"
 
-      - name: Assert action ran (outputs set, or failed gracefully)
+      - name: Assert action ran (no-lgtm and summary-output-file inputs accepted)
         env:
           OUTCOME: ${{ steps.action.outcome }}
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
