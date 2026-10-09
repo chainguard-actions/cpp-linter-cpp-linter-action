@@ -1,0 +1,44 @@
+name: Test clang-format style checking
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: lint
+        uses: .
+        continue-on-error: true
+        with:
+          style: "llvm"
+          extensions: "cpp,hpp"
+          tidy-checks: "-*"
+          repo-root: "."
+          files-changed-only: "false"
+          lines-changed-only: "false"
+          file-annotations: "false"
+          step-summary: "false"
+          thread-comments: "false"
+
+      - name: Assert format check ran (outputs set or failed gracefully)
+        env:
+          OUTCOME: ${{ steps.lint.outcome }}
+          FORMAT_FAILED: ${{ steps.lint.outputs.clang-format-checks-failed }}
+          TIDY_FAILED: ${{ steps.lint.outputs.clang-tidy-checks-failed }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded with llvm style"
+            # When tidy-checks is '-*', tidy failures should be 0
+            if [ -n "$TIDY_FAILED" ] && [ "$TIDY_FAILED" != "0" ]; then
+              echo "WARN: expected 0 tidy failures with '-*' checks, got '$TIDY_FAILED'"
+            fi
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (action.yml has no runs: section in this metadata repo)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

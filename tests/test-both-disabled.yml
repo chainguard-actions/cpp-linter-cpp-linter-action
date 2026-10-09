@@ -1,4 +1,4 @@
-name: Test basic usage - format only on clean C file
+name: Test with both clang-tidy and clang-format disabled
 on:
   workflow_dispatch:
 jobs:
@@ -10,20 +10,14 @@ jobs:
       - id: action
         uses: .
         with:
-          # Disable clang-tidy to speed up the test
+          # Disable clang-tidy entirely
           tidy-checks: '-*'
-          # Use llvm style for clang-format
-          style: 'llvm'
-          # Only look at C files
-          extensions: 'c'
-          # Analyze all files (not just changed ones)
+          # Disable clang-format entirely
+          style: ''
+          extensions: 'c,cpp'
           files-changed-only: 'false'
           lines-changed-only: 'false'
-          # Only look in the fixtures directory
           repo-root: '.'
-          ignore: '.github|tests/fixtures/src'
-          ignore-tidy: '.github|tests/fixtures/src'
-          ignore-format: '.github|tests/fixtures/src'
           # Disable PR features
           thread-comments: 'false'
           tidy-review: 'false'
@@ -32,7 +26,7 @@ jobs:
           step-summary: 'false'
           version: '20'
 
-      - name: Assert outputs are set
+      - name: Assert outputs are zero when both tools disabled
         env:
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
           TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
@@ -41,17 +35,17 @@ jobs:
           echo "checks-failed: $CHECKS_FAILED"
           echo "clang-tidy-checks-failed: $TIDY_FAILED"
           echo "clang-format-checks-failed: $FORMAT_FAILED"
-          # Outputs should be set (numeric values)
-          if [ -z "$CHECKS_FAILED" ]; then
-            echo "FAIL: checks-failed output is empty"
+          # When both tools are disabled, all outputs should be 0
+          if [ "$CHECKS_FAILED" != "0" ]; then
+            echo "FAIL: expected checks-failed=0, got '$CHECKS_FAILED'"
             exit 1
           fi
-          if [ -z "$TIDY_FAILED" ]; then
-            echo "FAIL: clang-tidy-checks-failed output is empty"
+          if [ "$TIDY_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-tidy-checks-failed=0, got '$TIDY_FAILED'"
             exit 1
           fi
-          if [ -z "$FORMAT_FAILED" ]; then
-            echo "FAIL: clang-format-checks-failed output is empty"
+          if [ "$FORMAT_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-format-checks-failed=0, got '$FORMAT_FAILED'"
             exit 1
           fi
-          echo "PASS: all outputs are set"
+          echo "PASS: all outputs are 0 as expected when both tools are disabled"

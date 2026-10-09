@@ -1,4 +1,4 @@
-name: Test step-summary output
+name: Test summary-output-file feature
 on:
   workflow_dispatch:
 jobs:
@@ -17,8 +17,9 @@ jobs:
           files-changed-only: 'false'
           lines-changed-only: 'false'
           repo-root: '.'
-          # Enable step summary
-          step-summary: 'true'
+          # Write summary to a file
+          summary-output-file: 'cpp-linter-summary.md'
+          step-summary: 'false'
           # Disable PR features
           thread-comments: 'false'
           tidy-review: 'false'
@@ -26,26 +27,25 @@ jobs:
           file-annotations: 'false'
           version: '20'
 
-      - name: Assert outputs are set and step summary was written
+      - name: Assert summary file was created
+        run: |
+          echo "Checking for summary output file..."
+          if [ -f "cpp-linter-summary.md" ]; then
+            echo "PASS: summary output file was created"
+            echo "--- File contents ---"
+            cat cpp-linter-summary.md
+          else
+            echo "FAIL: summary output file 'cpp-linter-summary.md' was not created"
+            exit 1
+          fi
+
+      - name: Assert outputs are set
         env:
           CHECKS_FAILED: ${{ steps.action.outputs.checks-failed }}
-          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
         run: |
           echo "checks-failed: $CHECKS_FAILED"
-          echo "clang-format-checks-failed: $FORMAT_FAILED"
-          # Outputs should be set (numeric values)
           if [ -z "$CHECKS_FAILED" ]; then
             echo "FAIL: checks-failed output is empty"
             exit 1
           fi
-          if [ -z "$FORMAT_FAILED" ]; then
-            echo "FAIL: clang-format-checks-failed output is empty"
-            exit 1
-          fi
-          # Check that GITHUB_STEP_SUMMARY was written to
-          if [ -f "$GITHUB_STEP_SUMMARY" ] && [ -s "$GITHUB_STEP_SUMMARY" ]; then
-            echo "PASS: step summary file was written"
-          else
-            echo "INFO: step summary file not found or empty (may be normal in act)"
-          fi
-          echo "PASS: outputs are set correctly"
+          echo "PASS: outputs are set"
