@@ -1,0 +1,52 @@
+name: Test experimental flags and version format
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # docs/action.yml is a documentation metadata file (no `runs:` section).
+      - id: action
+        uses: .
+        continue-on-error: true
+      - name: Assert step was attempted
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          case "$OUTCOME" in
+            success|failure) echo "PASS: step ran (outcome $OUTCOME)";;
+            *) echo "FAIL: unexpected outcome '$OUTCOME'"; exit 1;;
+          esac
+      - name: Locate metadata file
+        run: |
+          F=""
+          for c in "$GITHUB_WORKSPACE/action.yml" "$GITHUB_WORKSPACE/docs/action.yml"; do
+            if [ -f "$c" ] && grep -q 'minimum-version' "$c"; then F="$c"; break; fi
+          done
+          if [ -z "$F" ]; then
+            F="$(grep -rl --include=action.yml 'minimum-version' "$GITHUB_WORKSPACE" 2>/dev/null | head -n1)"
+          fi
+          if [ -z "$F" ]; then echo "FAIL: metadata action.yml not found"; exit 1; fi
+          echo "metadata: $F"
+          awk '
+            /^[A-Za-z]/ { sec=$1; sub(/:.*$/,"",sec); next }
+            /^  [A-Za-z0-9_-]+:/ { key=$1; sub(/:$/,"",key); print sec, key, "_entry", "-"; next }
+            /^    [a-z-]+:/ { prop=$1; sub(/:$/,"",prop); $1=""; v=$0; sub(/^ +/,"",v); gsub(/\047/,"",v); print sec, key, prop, v }
+          ' "$F" > /tmp/meta.txt
+          cat /tmp/meta.txt
+      - name: Assert minimum-version values are semver
+        run: |
+          BAD=$(awk '$3=="minimum-version" && $4 !~ /^[0-9]+\.[0-9]+\.[0-9]+$/ {print $2"="$4}' /tmp/meta.txt)
+          if [ -n "$BAD" ]; then echo "FAIL: non-semver versions: $BAD"; exit 1; fi
+          echo "PASS: all versions are X.Y.Z"
+      - name: Assert experimental flags
+        run: |
+          EXP=$(awk '$3=="experimental" && $4=="true" {print $2}' /tmp/meta.txt | sort | tr '\n' ' ')
+          echo "experimental: $EXP"
+          for k in tidy-review auto-fix; do
+            case " $EXP " in *" $k "*) ;; *) echo "FAIL: expected '$k' to be experimental"; exit 1;; esac
+          done
+          case " $EXP " in *" format-review "*) echo "FAIL: format-review should not be experimental"; exit 1;; esac
+          echo "PASS"

@@ -1,0 +1,42 @@
+name: Test clang-tidy detects violations
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          style: ''
+          tidy-checks: '-*,readability-braces-around-statements'
+          extensions: cpp
+          repo-root: tests/fixtures/tidy
+          files-changed-only: 'false'
+          lines-changed-only: 'false'
+          thread-comments: 'false'
+          step-summary: 'false'
+          cache-enable: 'false'
+      - name: Assert tidy checks failed
+        env:
+          FAILED: ${{ steps.action.outputs.checks-failed }}
+          TIDY_FAILED: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "checks-failed: $FAILED"
+          echo "clang-tidy-checks-failed: $TIDY_FAILED"
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if ! [ "$TIDY_FAILED" -ge 1 ] 2>/dev/null; then
+            echo "FAIL: expected clang-tidy-checks-failed >= 1"
+            exit 1
+          fi
+          if ! [ "$FAILED" -ge 1 ] 2>/dev/null; then
+            echo "FAIL: expected checks-failed >= 1"
+            exit 1
+          fi
+          if [ "$FORMAT_FAILED" != "0" ]; then
+            echo "FAIL: expected clang-format-checks-failed=0 (format disabled)"
+            exit 1
+          fi
+          echo "PASS"

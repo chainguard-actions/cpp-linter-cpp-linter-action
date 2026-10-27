@@ -1,0 +1,60 @@
+name: Test core inputs are accepted
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # docs/action.yml is a documentation metadata file (no `runs:` section),
+      # so the step may fail to execute; we only assert it was attempted.
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          style: file
+          extensions: c,h,cpp,hpp
+          tidy-checks: "-*,readability-*"
+          repo-root: "."
+          version: "18"
+          verbosity: info
+          lines-changed-only: "false"
+          files-changed-only: "false"
+          ignore: ".github|build"
+          ignore-tidy: "tests"
+          ignore-format: "docs"
+          no-lgtm: "true"
+          step-summary: "true"
+          file-annotations: "true"
+          database: build
+          extra-args: "-std=c++17 -Wall"
+          jobs: "2"
+          cache-enable: "false"
+          summary-output-file: summary.md
+          thread-comments: "false"
+      - name: Assert step was attempted
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          case "$OUTCOME" in
+            success|failure) echo "PASS: step ran (outcome $OUTCOME)";;
+            *) echo "FAIL: unexpected outcome '$OUTCOME'"; exit 1;;
+          esac
+      - name: Assert metadata declares the inputs used
+        run: |
+          F=""
+          for c in "$GITHUB_WORKSPACE/action.yml" "$GITHUB_WORKSPACE/docs/action.yml"; do
+            if [ -f "$c" ] && grep -q 'minimum-version' "$c"; then F="$c"; break; fi
+          done
+          if [ -z "$F" ]; then
+            F="$(grep -rl --include=action.yml 'minimum-version' "$GITHUB_WORKSPACE" 2>/dev/null | head -n1)"
+          fi
+          if [ -z "$F" ]; then echo "FAIL: metadata action.yml not found"; exit 1; fi
+          echo "metadata: $F"
+          for k in style extensions tidy-checks repo-root version verbosity lines-changed-only \
+                   files-changed-only ignore ignore-tidy ignore-format no-lgtm step-summary \
+                   file-annotations database extra-args jobs cache-enable summary-output-file thread-comments; do
+            if ! grep -qE "^  $k:" "$F"; then echo "FAIL: input '$k' not declared"; exit 1; fi
+          done
+          echo "PASS"

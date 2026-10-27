@@ -1,0 +1,36 @@
+name: Test summary-output-file writes a summary
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          style: llvm
+          tidy-checks: '-*'
+          extensions: cpp
+          repo-root: tests/fixtures/badformat
+          files-changed-only: 'false'
+          thread-comments: 'false'
+          cache-enable: 'false'
+          summary-output-file: ${{ runner.temp }}/cpp-linter-summary.md
+      - name: Assert summary file written
+        env:
+          SUMMARY: ${{ runner.temp }}/cpp-linter-summary.md
+          FORMAT_FAILED: ${{ steps.action.outputs.clang-format-checks-failed }}
+        run: |
+          echo "clang-format-checks-failed: $FORMAT_FAILED"
+          if [ ! -s "$SUMMARY" ]; then
+            echo "FAIL: summary file $SUMMARY missing or empty"
+            ls -la "$(dirname "$SUMMARY")" || true
+            exit 1
+          fi
+          cat "$SUMMARY"
+          if ! grep -q "main.cpp" "$SUMMARY"; then
+            echo "FAIL: summary does not mention main.cpp"
+            exit 1
+          fi
+          echo "PASS"

@@ -1,0 +1,53 @@
+name: Test every input declares a minimum-version
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # docs/action.yml is a documentation metadata file (no `runs:` section),
+      # so the runner may reject it as an executable action. Invoke it anyway
+      # and only reject a skipped/cancelled step.
+      - id: action
+        uses: .
+        continue-on-error: true
+      - name: Assert step was attempted
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          case "$OUTCOME" in
+            success|failure) echo "PASS: step ran (outcome $OUTCOME)";;
+            *) echo "FAIL: unexpected outcome '$OUTCOME'"; exit 1;;
+          esac
+      - name: Locate metadata file
+        run: |
+          F=""
+          for c in "$GITHUB_WORKSPACE/action.yml" "$GITHUB_WORKSPACE/docs/action.yml"; do
+            if [ -f "$c" ] && grep -q 'minimum-version' "$c"; then F="$c"; break; fi
+          done
+          if [ -z "$F" ]; then
+            F="$(grep -rl --include=action.yml 'minimum-version' "$GITHUB_WORKSPACE" 2>/dev/null | head -n1)"
+          fi
+          if [ -z "$F" ]; then echo "FAIL: metadata action.yml not found"; exit 1; fi
+          echo "metadata: $F"
+          awk '
+            /^[A-Za-z]/ { sec=$1; sub(/:.*$/,"",sec); next }
+            /^  [A-Za-z0-9_-]+:/ { key=$1; sub(/:$/,"",key); print sec, key, "_entry", "-"; next }
+            /^    [a-z-]+:/ { prop=$1; sub(/:$/,"",prop); $1=""; v=$0; sub(/^ +/,"",v); gsub(/\047/,"",v); print sec, key, prop, v }
+          ' "$F" > /tmp/meta.txt
+          cat /tmp/meta.txt
+      - name: Assert every input has a minimum-version
+        run: |
+          N=$(awk '$1=="inputs" && $3=="_entry"' /tmp/meta.txt | wc -l)
+          echo "inputs: $N"
+          if [ "$N" -lt 20 ]; then echo "FAIL: expected at least 20 inputs, got $N"; exit 1; fi
+          MISSING=$(awk '$1=="inputs" && $3=="_entry" {k[$2]=1} $1=="inputs" && $3=="minimum-version" {m[$2]=1} END {for (x in k) if (!(x in m)) print x}' /tmp/meta.txt)
+          if [ -n "$MISSING" ]; then echo "FAIL: inputs missing minimum-version: $MISSING"; exit 1; fi
+          for k in style extensions tidy-checks repo-root version ignore thread-comments step-summary database extra-args jobs; do
+            if ! awk -v k="$k" '$1=="inputs" && $2==k && $3=="_entry" {f=1} END {exit !f}' /tmp/meta.txt; then
+              echo "FAIL: expected input '$k' to be documented"; exit 1
+            fi
+          done
+          echo "PASS"

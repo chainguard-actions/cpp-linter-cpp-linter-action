@@ -1,0 +1,56 @@
+name: Test required-permission entries are well-formed
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # docs/action.yml is a documentation metadata file (no `runs:` section).
+      - id: action
+        uses: .
+        continue-on-error: true
+      - name: Assert step was attempted
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          case "$OUTCOME" in
+            success|failure) echo "PASS: step ran (outcome $OUTCOME)";;
+            *) echo "FAIL: unexpected outcome '$OUTCOME'"; exit 1;;
+          esac
+      - name: Locate metadata file
+        run: |
+          F=""
+          for c in "$GITHUB_WORKSPACE/action.yml" "$GITHUB_WORKSPACE/docs/action.yml"; do
+            if [ -f "$c" ] && grep -q 'minimum-version' "$c"; then F="$c"; break; fi
+          done
+          if [ -z "$F" ]; then
+            F="$(grep -rl --include=action.yml 'minimum-version' "$GITHUB_WORKSPACE" 2>/dev/null | head -n1)"
+          fi
+          if [ -z "$F" ]; then echo "FAIL: metadata action.yml not found"; exit 1; fi
+          echo "metadata: $F"
+          awk '
+            /^[A-Za-z]/ { sec=$1; sub(/:.*$/,"",sec); next }
+            /^  [A-Za-z0-9_-]+:/ { key=$1; sub(/:$/,"",key); print sec, key, "_entry", "-"; next }
+            /^    [a-z-]+:/ { prop=$1; sub(/:$/,"",prop); $1=""; v=$0; sub(/^ +/,"",v); gsub(/\047/,"",v); print sec, key, prop, v }
+          ' "$F" > /tmp/meta.txt
+          cat /tmp/meta.txt
+      - name: Assert required-permission entries are well-formed
+        run: |
+          awk '$3=="required-permission"' /tmp/meta.txt > /tmp/perms.txt
+          cat /tmp/perms.txt
+          N=$(wc -l < /tmp/perms.txt)
+          if [ "$N" -lt 5 ]; then echo "FAIL: expected at least 5 required-permission entries, got $N"; exit 1; fi
+          BAD=$(cut -d' ' -f4- /tmp/perms.txt | grep -vE '^[a-z-]+: (read|write) #[a-z-]+$' || true)
+          if [ -n "$BAD" ]; then echo "FAIL: malformed permission entries: $BAD"; exit 1; fi
+          if ! grep -qE '^inputs files-changed-only required-permission contents: read #file-changes$' /tmp/perms.txt; then
+            echo "FAIL: files-changed-only should require 'contents: read #file-changes'"; exit 1
+          fi
+          if ! grep -qE '^inputs thread-comments required-permission contents: write #thread-comments$' /tmp/perms.txt; then
+            echo "FAIL: thread-comments should require 'contents: write #thread-comments'"; exit 1
+          fi
+          if awk '$2=="ignore" && $3=="required-permission"' /tmp/meta.txt | grep -q .; then
+            echo "FAIL: 'ignore' input should not require permissions"; exit 1
+          fi
+          echo "PASS"

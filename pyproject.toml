@@ -1,0 +1,25 @@
+[project]
+name = "cpp-linter-action"
+version = "0.0.0+private_virtual"
+requires-python = ">=3.10"
+dependencies = []
+
+[dependency-groups]
+action = [
+    "clang-tools==2.0.0",
+    "cpp-linter==1.15.1",
+]
+dev = [
+    "mypy>=2.4.0",
+    # filelock (needed by pre-commit) has no fixed release for Python 3.10
+    "pre-commit>=4.6.2; python_version >= '3.11'",
+    "ruff>=0.17.1",
+]
+docs = [
+    "markdown-gfm-admonition>=0.1.1",
+    "mkdocs>=1.6.1",
+    "mkdocs-gen-files>=0.6.1",
+    "mkdocs-include-markdown-plugin>=7.3.0",
+    "mkdocs-material>=9.7.7",
+    "pyyaml>=6.0.3",
+]

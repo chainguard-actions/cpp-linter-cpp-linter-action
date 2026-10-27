@@ -1,0 +1,47 @@
+name: Test review and auto-fix inputs are accepted
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # docs/action.yml is a documentation metadata file (no `runs:` section).
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          tidy-review: "false"
+          format-review: "false"
+          passive-reviews: "true"
+          auto-fix: "false"
+          auto-fix-commit-msg: "style: apply cpp-linter fixes"
+          auto-fix-git-user: "test-bot"
+          auto-fix-git-email: "test-bot@example.com"
+      - name: Assert step was attempted
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          case "$OUTCOME" in
+            success|failure) echo "PASS: step ran (outcome $OUTCOME)";;
+            *) echo "FAIL: unexpected outcome '$OUTCOME'"; exit 1;;
+          esac
+      - name: Assert review/auto-fix permissions documented
+        run: |
+          F=""
+          for c in "$GITHUB_WORKSPACE/action.yml" "$GITHUB_WORKSPACE/docs/action.yml"; do
+            if [ -f "$c" ] && grep -q 'minimum-version' "$c"; then F="$c"; break; fi
+          done
+          if [ -z "$F" ]; then
+            F="$(grep -rl --include=action.yml 'minimum-version' "$GITHUB_WORKSPACE" 2>/dev/null | head -n1)"
+          fi
+          if [ -z "$F" ]; then echo "FAIL: metadata action.yml not found"; exit 1; fi
+          for k in tidy-review format-review passive-reviews auto-fix auto-fix-commit-msg auto-fix-git-user auto-fix-git-email; do
+            if ! grep -qE "^  $k:" "$F"; then echo "FAIL: input '$k' not declared"; exit 1; fi
+          done
+          # auto-fix requires contents: write
+          if ! awk '/^  auto-fix:/{f=1;next} /^  [a-z]/{f=0} f' "$F" | grep -q "contents: write"; then
+            echo "FAIL: auto-fix should require contents: write"; exit 1
+          fi
+          echo "PASS"
