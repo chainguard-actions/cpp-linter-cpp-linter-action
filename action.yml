@@ -314,7 +314,7 @@ runs:
     - name: Setup nu shell
       # I'm done writing everything twice (in bash and powershell)
       # With nu shell, we use the same shell/script for all platforms
-      uses: hustcer/setup-nu@eacad52a4634c4f8d17a94916f93be6856861b9c # v3.29
+      uses: chainguard-actions/hustcer-setup-nu@27fec77d389b86d087088838b985a43e70e031b0 # v3.29
       with:
         version: '0.106.1'
 
@@ -337,7 +337,7 @@ runs:
 
     - name: Enable cache
       if: inputs.cache-enable == 'true' || inputs.cache-enable == true
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      uses: chainguard-actions/actions-cache@46c2783c2418d3de33490be27a0d86c6268bc4fd # v6.1.0
       with:
         path: ${{ runner.temp }}/cpp-linter-action-cache
         key: cpp-linter-action_${{ runner.os }}_${{ steps.compute-cache-key.outputs.key }}
