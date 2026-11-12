@@ -1,0 +1,54 @@
+name: Test clang-tidy inputs metadata (docs action.yml)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+      - name: Assert step outcome is a definite result
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ] && [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: outcome '$OUTCOME' (metadata-only file is not executable)"
+      - name: Assert clang-tidy related input metadata
+        run: |
+          META=""
+          for c in "$GITHUB_WORKSPACE/docs/action.yml" "$GITHUB_WORKSPACE/action.yml"; do
+            if [ -f "$c" ] && grep -q 'minimum-version' "$c"; then META="$c"; break; fi
+          done
+          if [ -z "$META" ]; then echo "FAIL: metadata action.yml not found"; exit 1; fi
+          echo "metadata file: $META"
+          get_field() {
+            awk -v s="$1" -v k="$2" -v f="$3" '
+              /^[^ #]/ { cur=$0; sub(/:.*/,"",cur); inkey=0; next }
+              cur==s && /^  [^ ]/ { name=$0; sub(/^  /,"",name); sub(/:.*/,"",name); inkey=(name==k); next }
+              cur==s && inkey && /^    [^ ]/ { line=$0; sub(/^    /,"",line); n=line; sub(/:.*/,"",n);
+                if (n==f) { v=line; sub(/^[^:]*:[ ]*/,"",v); print v; exit } }
+            ' "$META" | tr -d "'\""
+          }
+          check() {
+            actual="$(get_field "$1" "$2" "$3")"
+            echo "$1.$2.$3 = '$actual'"
+            if [ "$actual" != "$4" ]; then
+              echo "FAIL: expected '$4'"
+              exit 1
+            fi
+          }
+          check inputs tidy-checks minimum-version 1.2.0
+          check inputs ignore-tidy minimum-version 2.12.0
+          check inputs database minimum-version 1.4.0
+          check inputs extra-args minimum-version 2.1.0
+          check inputs tidy-review experimental true
+          check inputs tidy-review minimum-version 2.9.0
+          check inputs tidy-review required-permission "pull-requests: write #pull-request-reviews"
+          check inputs passive-reviews minimum-version 2.12.0
+          echo "PASS"

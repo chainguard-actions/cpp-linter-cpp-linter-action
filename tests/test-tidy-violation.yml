@@ -1,0 +1,36 @@
+name: Test clang-tidy detects violations
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          style: ''
+          tidy-checks: '-*,modernize-use-nullptr'
+          repo-root: tests/fixtures/tidy
+          files-changed-only: 'false'
+          thread-comments: 'false'
+          extra-args: '-std=c++17'
+      - name: Assert tidy checks failed
+        env:
+          ALL: ${{ steps.action.outputs.checks-failed }}
+          FMT: ${{ steps.action.outputs.clang-format-checks-failed }}
+          TIDY: ${{ steps.action.outputs.clang-tidy-checks-failed }}
+        run: |
+          echo "checks-failed: $ALL"
+          echo "clang-format-checks-failed: $FMT"
+          echo "clang-tidy-checks-failed: $TIDY"
+          case "$TIDY" in ''|*[!0-9]*) echo "FAIL: clang-tidy-checks-failed not an integer"; exit 1;; esac
+          if [ "$TIDY" -lt 1 ]; then
+            echo "FAIL: expected clang-tidy-checks-failed >= 1"
+            exit 1
+          fi
+          if [ "$FMT" != "0" ]; then
+            echo "FAIL: expected clang-format-checks-failed=0 with format disabled"
+            exit 1
+          fi
+          echo "PASS"
