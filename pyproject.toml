@@ -1,0 +1,30 @@
+[project]
+name = "cpp-linter-action"
+version = "0.0.0+private_virtual"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+action = [
+    "clang-tools==2.0.0",
+    "cpp-linter==1.16.1",
+]
+dev = [
+    "mypy>=2.4.0",
+    "pre-commit>=4.6.2",
+    "ruff>=0.17.5",
+]
+docs = [
+    "markdown-gfm-admonition>=0.1.1",
+    "mkdocs-ng>=1.11.2",
+    "mkdocs-gen-files>=0.6.1",
+    "mkdocs-include-markdown-plugin>=7.3.2",
+    "mkdocs-ng-material>=9.8.2",
+    "pyyaml>=6.0.3",
+]
+
+[tool.uv]
+# mkdocs-ng and mkdocs-ng-material replace mkdocs and mkdocs-material, which
+# are no longer maintained. The plugins still depend on "mkdocs"; mkdocs-ng
+# provides it, so keep the upstream package out.
+override-dependencies = ["mkdocs; sys_platform == 'never'"]
